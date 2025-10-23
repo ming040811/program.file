@@ -243,8 +243,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // ⭐ 속도 최적화를 위한 변수 추가 (Throttling)
         let lastNudgeTime = 0;
-        const NUDGE_INTERVAL = 50; // 50ms (초당 20번)
-        // ⭐ --- 여기까지 ---
+        // ⭐⭐⭐ 반응 속도 UP! (14ms -> 약 71Hz) ⭐⭐⭐
+        const NUDGE_INTERVAL = 14; 
+        // ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐
 
         const startDrag = (e) => {
             if (!activeDecoId) return;
@@ -259,7 +260,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!isDragging) return;
             e.preventDefault();
 
-            // ⭐ 속도 최적화: 50ms 이내의 이벤트는 무시
+            // ⭐ 속도 최적화: NUDGE_INTERVAL 이내의 이벤트는 무시
             const now = Date.now();
             if (now - lastNudgeTime < NUDGE_INTERVAL) {
                 return; 
@@ -361,6 +362,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- ⭐ [수정됨] 2-1. 아이템 스타일만 가볍게 업데이트하는 함수 ---
+    // (깜빡임 해결의 핵심)
     function updateElementStyle(decoData) {
         const element = document.getElementById(decoData.id);
         if (!element) return;
@@ -381,6 +383,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let pcUpdateTimer = null;
     const PC_UPDATE_INTERVAL = 500; // 0.5초마다 썸네일/상태 동기화
 
+    // (이 함수는 현재 PC에서 직접 조작할 때만 사용됨)
     function requestPcUpdate() {
         if (pcUpdateTimer) return; // 이미 업데이트 요청이 예약됨
 
@@ -393,41 +396,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // --- 3. 컨트롤러 조작 명령 처리 함수 ---
-    // PC에서 직접 실행하거나, 모바일에서 온 명령을 여기서 처리합니다.
     function handleControllerControl(id, action, data) {
         let decoData;
         
-        // 모바일에서 보낸 ID가 현재 선택된 아이템이 아니더라도, 해당 아이템을 조작합니다.
         if (action === 'select') {
             selectItem(data.newId);
             return;
         }
 
-        // 모바일에서 보낸 ID로 아이템을 선택하고 조작
         if (id && selectedDecoId !== id) {
              selectItem(id);
         }
         
-        // 선택 해제 후 삭제 명령이 올 수 있으므로 selectedDecoId를 다시 확인
         if (selectedDecoId === null) return;
         
         decoData = storyData[currentScene].decorations.find(d => d.id === selectedDecoId);
         if (!decoData) return;
 
-        const step = { move: 1, rotate: 5, scale: 0.02 }; // Nudge에 맞춰 move step을 줄였습니다.
+        const step = { rotate: 5, scale: 0.02 }; 
         // let updated = false; // ⭐ 삭제: 이 로직은 더 이상 필요 없음
 
         if (action === 'nudge') {
             const dx = data.dx || 0;
             const dy = data.dy || 0;
             
-            // 1. 데이터 업데이트
-            decoData.x += dx;
-            decoData.y += dy;
+            // 1. 데이터 업데이트 (모바일에서 /5 했으므로 *5 증폭)
+            decoData.x += dx * 5;
+            decoData.y += dy * 5;
             // 2. ⭐ [수정] DOM 경량 업데이트 (renderScene 대신)
             updateElementStyle(decoData);
-            // 3. ⭐ [추가] 0.5초 뒤 썸네일/상태 동기화 요청
-            requestPcUpdate();
+            // 3. ⭐ [수정] 썸네일/동기화는 requestPcUpdate 대신 즉시 요청
+            // (모바일 조작은 이미 throttle 되어 있으므로)
+            syncStateToFirestore();
+            updateThumbnail(currentScene);
             
         } else if (action === 'rotate') {
             const direction = data.direction;
@@ -435,8 +436,9 @@ document.addEventListener('DOMContentLoaded', () => {
             else if (direction === 'RIGHT') { decoData.rotation += step.rotate; }
             // 2. ⭐ [수정] DOM 경량 업데이트
             updateElementStyle(decoData);
-            // 3. ⭐ [추가] 0.5초 뒤 썸네일/상태 동기화 요청
-            requestPcUpdate();
+            // 3. ⭐ [수정] 썸네일/동기화 즉시 요청
+            syncStateToFirestore();
+            updateThumbnail(currentScene);
             
         } else if (action === 'scale') {
             const direction = data.direction;
@@ -453,15 +455,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 // 2. ⭐ [수정] DOM 경량 업데이트
                 updateElementStyle(decoData);
-                // 3. ⭐ [추가] 0.5초 뒤 썸네일/상태 동기화 요청
-                requestPcUpdate();
+                // 3. ⭐ [수정] 썸네일/동기화 즉시 요청
+                syncStateToFirestore();
+                updateThumbnail(currentScene);
             }
         } else if (action === 'flip') {
             decoData.scaleX *= -1;
             // 2. ⭐ [수정] DOM 경량 업데이트
             updateElementStyle(decoData);
-            // 3. ⭐ [추가] 0.5초 뒤 썸네일/상태 동기화 요청
-            requestPcUpdate();
+            // 3. ⭐ [수정] 썸네일/동기화 즉시 요청
+            syncStateToFirestore();
+            updateThumbnail(currentScene);
 
         } else if (action === 'delete') {
             const index = storyData[currentScene].decorations.findIndex(d => d.id === id);
@@ -766,7 +770,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 let startRotation = decoData.rotation;
 
                 document.onmousemove = function(e_move) {
-                    const currentAngle = Math.atan2(e_move.clientY - centerY, e_move.clientX - centerX) * (180 / Math.PI);
+                    const currentAngle = Math.atan2(e_move.clientY - centerY, e_clientX - centerX) * (180 / Math.PI);
                     let newRotation = startRotation + (currentAngle - startAngle);
                     
                     const snapThreshold = 6;
@@ -781,8 +785,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
                 document.onmouseup = function() {
                     document.onmousemove = null; document.onmouseup = null;
-                    // ❗️[수정] 데이터만 업데이트하고 동기화는 requestPcUpdate에 맡길 수 있으나,
-                    // PC 조작은 즉시 동기화하는 것이 사용자 경험에 더 좋습니다. (기존 로직 유지)
                     updateThumbnail(currentScene);
                     syncStateToFirestore();
                 };
@@ -794,7 +796,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (flipButton) {
             flipButton.addEventListener('click', (e) => {
                 e.stopPropagation();
-                handleControllerControl(element.id, 'flip'); // ❗️이 함수는 이제 requestPcUpdate를 호출
+                handleControllerControl(element.id, 'flip');
             });
         }
         
@@ -803,7 +805,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (deleteButton) {
             deleteButton.addEventListener('click', (e) => {
                 e.stopPropagation();
-                handleControllerControl(element.id, 'delete'); // ❗️이 함수는 즉시 동기화/삭제
+                handleControllerControl(element.id, 'delete');
             });
         }
     }
@@ -889,10 +891,5 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!isControllerMode) {
         syncStateToFirestore();
     }
-});
-
-    
-    // PC 모드에서 최초 상태 동기화 (세션 ID 생성 후)
-    syncStateToFirestore();
 });
 
