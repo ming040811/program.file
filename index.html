@@ -10,22 +10,22 @@
 <body>
 
     <!-- 모바일 컨트롤러 UI (평소엔 숨겨져 있음) -->
-    <div id="mobile-controller-ui" style="display: none; height: 100vh; width: 100vw; background: #f0f0f0; flex-direction: column; align-items: center; justify-content: space-around; padding: 20px; box-sizing: border-box;">
+    <div id="mobile-controller-ui" style="display: none; height: 100vh; width: 100vw; background: #f0f0f0; flex-direction: column; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; overflow-y: auto;">
         
-        <h2 id="controller-status" style="color:#4F99B2;">PC 연결 대기 중...</h2>
+        <h2 id="controller-status" style="color:#4F99B2; text-align: center; margin-bottom: 10px; flex-shrink: 0;">PC 연결 대기 중...</h2>
 
-        <div id="selection-area" style="width: 100%; max-width: 350px; text-align: center;">
+        <div id="selection-area" style="width: 100%; max-width: 350px; text-align: center; margin-bottom: 15px; flex-shrink: 0;">
             <p style="margin: 5px 0 10px; font-weight: bold;">조작할 아이템 선택:</p>
-            <div id="deco-selection" style="display: flex; justify-content: space-around; gap: 8px;">
+            <div id="deco-selection" style="display: flex; justify-content: center; flex-wrap: wrap; gap: 8px;">
                 <!-- JavaScript가 동적으로 버튼을 채웁니다. -->
             </div>
         </div>
         
-        <div id="touchpad" style="width: 250px; height: 250px; background: white; border: 2px solid #4F99B2; border-radius: 15px; position: relative; cursor: grab; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #aaa; font-size: 14px;">드래그하여 미세 조정</div>
+        <div id="touchpad" style="width: 685px; height: 1218px; background: white; border: 2px solid #4F99B2; border-radius: 15px; position: relative; cursor: grab; box-shadow: 0 4px 8px rgba(0,0,0,0.1); margin-bottom: 20px; flex-shrink: 0;">
+            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #aaa; font-size: 14px; text-align: center; padding: 10px;">드래그하여 미세 조정</div>
         </div>
 
-        <div id="control-buttons" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; width: 100%; max-width: 350px;">
+        <div id="control-buttons" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; width: 100%; max-width: 350px; flex-shrink: 0;">
             <button class="ctrl-action-btn" data-action="rotate-left" style="padding: 12px; background: #fff; border: 1px solid #ccc; border-radius: 8px; font-size: 16px;">⟲ 회전-</button>
             <button class="ctrl-action-btn" data-action="rotate-right" style="padding: 12px; background: #fff; border: 1px solid #ccc; border-radius: 8px; font-size: 16px;">회전+ ⟳</button>
             <button class="ctrl-action-btn" data-action="scale-down" style="padding: 12px; background: #fff; border: 1px solid #ccc; border-radius: 8px; font-size: 16px;">축소-</button>
@@ -45,9 +45,9 @@
         <aside class="asset-panel">
             <div class="asset-container">
                 <div id="decorations" class="asset-list">
-                    <!-- ❗️ 이미지 경로 확인! ❗️ -->
-                    <img src="img/사각형.png" class="asset-item" data-type="decoration" data-canvas-src="img/사각형.png" onerror="this.src='https://placehold.co/120x120/eee/ccc?text=사각형.png';">
-                    <img src="img/나비.png" class="asset-item" data-type="decoration" data-canvas-src="img/나비.png" onerror="this.src='https://placehold.co/120x120/eee/ccc?text=나비.png';">
+                    <!-- 아이템 경로 확인! -->
+                    <img src="img/사각형.png" class="asset-item" data-type="decoration" data-canvas-src="img/사각형.png" onerror="this.src='https://placehold.co/120x120/eee/ccc?text=사각형'">
+                    <img src="img/나비.png" class="asset-item" data-type="decoration" data-canvas-src="img/나비.png" onerror="this.src='https://placehold.co/120x120/eee/ccc?text=나비'">
                 </div>
             </div>
         </aside>
@@ -88,15 +88,21 @@
                 style="margin-top: 20px; padding: 10px 20px; font-size: 16px; cursor: pointer;">닫기</button>
     </div>
 
+    <!-- ⭐⭐⭐ 경고 메시지 바 추가 ⭐⭐⭐ -->
+    <div id="limit-alert" class="alert-bar">
+        한 화면에는 최대 3개의 캐릭터만 추가할 수 있습니다. 다른 캐릭터를 추가하려면, 현재 화면에 있는 캐릭터 중 하나를 삭제해주세요.
+    </div>
+    <!-- ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ -->
+
     <!-- ====================================================== -->
     <!-- ⭐ 1. Firebase SDK 추가 (필수) ⭐ -->
-    <!-- v8 SDK (script3.js 코드와 호환) -->
+    <!-- v8 SDK (기존 코드와 호환) -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
 
-    <!-- ⭐ 2. Firebase 초기화 (필수) - "새" 설정값으로 적용됨 ⭐ -->
+    <!-- ⭐ 2. Firebase 초기화 (필수) ⭐ -->
     <script>
-      // ❗️ 님께서 제공해주신 "새" 설정값입니다. (controlling-82b19)
+      // ❗️ controlling-82b19 프로젝트 설정값 적용됨
       const firebaseConfig = {
         apiKey: "AIzaSyBkCdi2LZvWoGGnv3dT8Kq76TOz42L4GDw",
         authDomain: "controlling-82b19.firebaseapp.com",
@@ -119,7 +125,6 @@
 
     <!-- 3. 기타 스크립트 로드 (반드시 Firebase 초기화 *이후*에 와야 함) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <!-- 4. 님의 자바스크립트 파일 로드 -->
     <script src="script3.js"></script>
     
 </body>
