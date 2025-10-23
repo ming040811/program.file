@@ -54,6 +54,7 @@ body {
     display: flex;
     flex-grow: 1;
     overflow: hidden;
+    position: relative; /* 경고 메시지 바 위치 기준 */
 }
 
 /* 에셋 패널 */
@@ -277,7 +278,7 @@ body {
 .asset-container::-webkit-scrollbar-thumb:hover { background: #c1c1c1; }
 .asset-container::-webkit-scrollbar-button { display: none; }
 
-/* ⭐ 모바일 컨트롤러 UI 스타일 ⭐ */
+/* 모바일 컨트롤러 UI 스타일 (터치패드 크기 고정) */
 #mobile-controller-ui {
     display: none; /* PC에서는 숨김 */
     height: 100vh;
@@ -285,7 +286,7 @@ body {
     background: #f0f0f0;
     flex-direction: column;
     align-items: center;
-    justify-content: space-around; /* 요소들을 수직으로 균등 분배 */
+    justify-content: center; /* 요소들을 수직 중앙 정렬 */
     padding: 20px;
     box-sizing: border-box;
     overflow-y: auto; /* 내용 많아지면 스크롤 */
@@ -336,12 +337,10 @@ body {
 }
 
 
-/* ⭐ 터치패드 스타일 (사용자 지정 크기로 수정) ⭐ */
+/* 터치패드 스타일 (크기 고정) */
 #touchpad {
     width: 685px;  /* 요청하신 가로 크기 */
     height: 1218px; /* 요청하신 세로 크기 */
-    max-width: 90vw; /* 화면 너비의 90%를 넘지 않도록 제한 */
-    max-height: 50vh; /* 화면 높이의 50%를 넘지 않도록 제한 (다른 요소 공간 확보) */
     background: white;
     border: 2px solid #4F99B2;
     border-radius: 15px;
@@ -349,8 +348,7 @@ body {
     cursor: grab;
     box-shadow: 0 4px 8px rgba(0,0,0,0.1);
     margin-bottom: 20px; /* 아래 버튼과의 간격 */
-    flex-shrink: 1; /* 공간 부족 시 크기 줄어들 수 있도록 함 */
-    /* object-fit: contain; /* 비율 유지하며 크기 조절 (필요 시) */
+    flex-shrink: 0; /* 공간 부족해도 크기 줄어들지 않도록 함 */
 }
 
 #touchpad > div { /* 내부 안내 텍스트 */
@@ -396,3 +394,36 @@ body {
     background: #f1b0b7;
 }
 
+/* ⭐⭐⭐ 경고 메시지 바 스타일 수정 ⭐⭐⭐ */
+.alert-bar {
+    display: none; /* 평소에는 숨김 */
+    position: absolute; /* .app-main 기준으로 위치 */
+    bottom: 20px; /* 하단에서 20px 띄움 */
+    left: 50%; /* 가운데 정렬 */
+    transform: translateX(-50%); /* 가운데 정렬 */
+    /* ⭐ 수정: width, height 조정 ⭐ */
+    width: 1300px; /* ⭐ 너비 1300px로 수정 ⭐ */
+    max-width: 90%; /* 화면 너비를 넘지 않도록 */
+    height: 50px; /* ⭐ 높이 50px로 수정 ⭐ */
+    background-color: #3A3A3A; /* 요청하신 배경색 */
+    color: white; /* 요청하신 글자색 */
+    /* ⭐ 수정: padding 조정 ⭐ */
+    padding: 10px 15px; /* 좌우 여백 줄임 */
+    border-radius: 8px; /* 둥근 모서리 */
+    /* box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3); <-- 그림자 제거 */
+    display: flex; /* 내부 요소 정렬용 */
+    align-items: center; /* 수직 가운데 정렬 */
+    justify-content: center; /* 수평 가운데 정렬 */
+    text-align: center; /* 텍스트 가운데 정렬 */
+    font-size: 16px; /* 글자 크기 (유지) */
+    z-index: 1001; /* 다른 요소 위에 표시 */
+    box-sizing: border-box; /* 패딩 포함 크기 계산 */
+
+    opacity: 0; /* 초기 투명 상태 */
+    transition: opacity 0.3s ease-in-out; /* 부드러운 효과 */
+}
+
+.alert-bar.show {
+    display: flex; /* 보이도록 설정 */
+    opacity: 1; /* 보이도록 설정 */
+}
