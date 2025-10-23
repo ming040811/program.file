@@ -285,7 +285,8 @@ body {
     background: #f0f0f0;
     flex-direction: column;
     align-items: center;
-    justify-content: space-around; /* 요소들을 수직으로 균등 분배 */
+    /* ⭐ 수정: justify-content 변경 (space-around -> center) ⭐ */
+    justify-content: center; /* 요소들을 수직 중앙 정렬 */
     padding: 20px;
     box-sizing: border-box;
     overflow-y: auto; /* 내용 많아지면 스크롤 */
@@ -336,12 +337,10 @@ body {
 }
 
 
-/* ⭐ 터치패드 스타일 (사용자 지정 크기, 제한 제거됨) ⭐ */
+/* ⭐ 터치패드 스타일 (크기 고정) ⭐ */
 #touchpad {
     width: 685px;  /* 요청하신 가로 크기 */
     height: 1218px; /* 요청하신 세로 크기 */
-    /* max-width: 90vw; */ /* 화면 너비 제한 제거 */
-    /* max-height: 50vh; */ /* 화면 높이 제한 제거 */
     background: white;
     border: 2px solid #4F99B2;
     border-radius: 15px;
@@ -349,8 +348,8 @@ body {
     cursor: grab;
     box-shadow: 0 4px 8px rgba(0,0,0,0.1);
     margin-bottom: 20px; /* 아래 버튼과의 간격 */
-    flex-shrink: 1; /* 공간 부족 시 크기 줄어들 수 있도록 함 */
-    /* object-fit: contain; /* 비율 유지하며 크기 조절 (필요 시) */
+    /* ⭐ 수정: flex-shrink 변경 (1 -> 0) ⭐ */
+    flex-shrink: 0; /* 공간 부족해도 크기 줄어들지 않도록 함 */
 }
 
 #touchpad > div { /* 내부 안내 텍스트 */
