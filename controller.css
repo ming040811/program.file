@@ -54,6 +54,7 @@ body {
     display: flex;
     flex-grow: 1;
     overflow: hidden;
+    position: relative; /* 경고 메시지 바 위치 기준 */
 }
 
 /* 에셋 패널 */
@@ -277,7 +278,7 @@ body {
 .asset-container::-webkit-scrollbar-thumb:hover { background: #c1c1c1; }
 .asset-container::-webkit-scrollbar-button { display: none; }
 
-/* ⭐ 모바일 컨트롤러 UI 스타일 ⭐ */
+/* ⭐⭐⭐ 모바일 컨트롤러 UI 스타일 (이미지 기반 복원) ⭐⭐⭐ */
 #mobile-controller-ui {
     display: none; /* PC에서는 숨김 */
     height: 100vh;
@@ -285,7 +286,6 @@ body {
     background: #f0f0f0;
     flex-direction: column;
     align-items: center;
-    /* ⭐ 수정: justify-content 변경 (space-around -> center) ⭐ */
     justify-content: center; /* 요소들을 수직 중앙 정렬 */
     padding: 20px;
     box-sizing: border-box;
@@ -297,6 +297,7 @@ body {
     text-align: center;
     margin-bottom: 10px;
     flex-shrink: 0; /* 상태 텍스트 크기 유지 */
+    font-size: 1.1em; /* 이미지와 유사하게 약간 크게 */
 }
 
 #selection-area {
@@ -337,10 +338,11 @@ body {
 }
 
 
-/* ⭐ 터치패드 스타일 (크기 고정) ⭐ */
+/* ⭐ 터치패드 스타일 (반응형 크기로 복원) ⭐ */
 #touchpad {
-    width: 685px;  /* 요청하신 가로 크기 */
-    height: 1218px; /* 요청하신 세로 크기 */
+    width: 100%;            /* 화면 너비에 맞춤 */
+    max-width: 350px;       /* 버튼과 너비 통일 */
+    height: 300px;          /* 이미지와 유사한 고정 높이 */
     background: white;
     border: 2px solid #4F99B2;
     border-radius: 15px;
@@ -348,8 +350,7 @@ body {
     cursor: grab;
     box-shadow: 0 4px 8px rgba(0,0,0,0.1);
     margin-bottom: 20px; /* 아래 버튼과의 간격 */
-    /* ⭐ 수정: flex-shrink 변경 (1 -> 0) ⭐ */
-    flex-shrink: 0; /* 공간 부족해도 크기 줄어들지 않도록 함 */
+    flex-shrink: 0; /* 크기 유지 */
 }
 
 #touchpad > div { /* 내부 안내 텍스트 */
@@ -363,9 +364,10 @@ body {
     padding: 10px; /* 텍스트 잘림 방지 */
 }
 
+/* ⭐ 컨트롤 버튼 (이미지와 동일한 2열 그리드) ⭐ */
 #control-buttons {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, 1fr); /* 2열 */
     gap: 10px;
     width: 100%;
     max-width: 350px;
@@ -376,7 +378,7 @@ body {
     padding: 12px;
     background: #fff;
     border: 1px solid #ccc;
-    border-radius: 8px;
+    border-radius: 8px; /* 이미지와 유사한 둥근 모서리 */
     font-size: 16px;
     cursor: pointer;
     text-align: center;
@@ -385,7 +387,7 @@ body {
     background-color: #eee; /* 클릭 효과 */
 }
 
-/* 삭제 버튼 특별 스타일 */
+/* 삭제 버튼 특별 스타일 (이미지와 동일) */
 .ctrl-action-btn[data-action="delete"] {
     background: #f8d7da;
     border: 1px solid #f5c6cb;
@@ -393,5 +395,39 @@ body {
 }
 .ctrl-action-btn[data-action="delete"]:active {
     background: #f1b0b7;
+}
+
+/* ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ */
+
+
+/* 경고 메시지 바 스타일 */
+.alert-bar {
+    display: none; /* 평소에는 숨김 */
+    position: absolute; /* .app-main 기준으로 위치 */
+    bottom: 20px; /* 하단에서 20px 띄움 */
+    left: 50%; /* 가운데 정렬 */
+    transform: translateX(-50%); /* 가운데 정렬 */
+    width: 1300px; 
+    max-width: 90%; /* 화면 너비를 넘지 않도록 */
+    height: 50px; 
+    background-color: #3A3A3A; /* 요청하신 배경색 */
+    color: white; /* 요청하신 글자색 */
+    padding: 10px 15px; /* 좌우 여백 줄임 */
+    border-radius: 8px; /* 둥근 모서리 */
+    display: flex; /* 내부 요소 정렬용 */
+    align-items: center; /* 수직 가운데 정렬 */
+    justify-content: center; /* 수평 가운데 정렬 */
+    text-align: center; /* 텍스트 가운데 정렬 */
+    font-size: 16px; /* 글자 크기 (유지) */
+    z-index: 1001; /* 다른 요소 위에 표시 */
+    box-sizing: border-box; /* 패딩 포함 크기 계산 */
+
+    opacity: 0; /* 초기 투명 상태 */
+    transition: opacity 0.3s ease-in-out; /* 부드러운 효과 */
+}
+
+.alert-bar.show {
+    display: flex; /* 보이도록 설정 */
+    opacity: 1; /* 보이도록 설정 */
 }
 
