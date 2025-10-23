@@ -243,7 +243,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // ⭐ 속도 최적화를 위한 변수 추가 (Throttling)
         let lastNudgeTime = 0;
-        const NUDGE_INTERVAL = 50; // 50ms (초당 20번)
+        // ⭐ [수정] 50ms -> 20ms로 변경 (초당 20번 -> 50번 전송)
+        const NUDGE_INTERVAL = 20; // 20ms (초당 50번)
         // ⭐ --- 여기까지 ---
 
         const startDrag = (e) => {
@@ -259,7 +260,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!isDragging) return;
             e.preventDefault();
 
-            // ⭐ 속도 최적화: 50ms 이내의 이벤트는 무시
+            // ⭐ 속도 최적화: 20ms 이내의 이벤트는 무시
             const now = Date.now();
             if (now - lastNudgeTime < NUDGE_INTERVAL) {
                 return; 
@@ -474,13 +475,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 return; 
             }
         }
-
-        // ⭐ 삭제: 이 블록이 깜빡임의 원인이었음
-        /*
-        if (updated) {
-            renderScene(currentScene); 
-        }
-        */
     }
 
     // --- 4. 장식 아이템 추가 이벤트 핸들러 (PC에서만 작동) ---
@@ -890,3 +884,4 @@ document.addEventListener('DOMContentLoaded', () => {
         syncStateToFirestore();
     }
 });
+
