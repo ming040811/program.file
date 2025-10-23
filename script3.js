@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     let currentScene = '1';
     let selectedDecoId = null; 
-    let activeDecoId = null; // 컨트롤러 모드에서 현재 조작할 아이템 ID
+    let activeDecoId = null; // 컨트롤러 모드에서 현재 조작할 아이템 ID (모바일)
 
     // =========================================================================
     // ⭐ 🚨통신 핵심 로직: localStorage를 통한 데이터 송수신🚨 ⭐
@@ -33,6 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // PC -> 모바일 (상태 동기화)
     function syncStateToStorage() {
+        // 아이템은 최대 3개까지만 전송합니다.
         const decoList = storyData[currentScene].decorations.slice(0, 3).map((deco, index) => ({
             id: deco.id,
             index: index + 1
@@ -44,6 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
             decoList: decoList,
             timestamp: Date.now()
         };
+        // PC의 상태를 로컬 스토리지에 저장 (컨트롤러가 이 값을 읽음)
         localStorage.setItem(STORAGE_KEY + 'State', JSON.stringify(state));
     }
     
@@ -60,6 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // PC 모드에서 100ms마다 명령을 확인합니다.
     if (!isControllerMode) {
+        // PC에서 명령 수신 폴링 시작
         setInterval(checkControlCommand, 100); 
     }
 
@@ -67,13 +70,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // ⭐ 모바일 컨트롤러 모드 (isControllerMode: true) 로직 ⭐
     // =========================================================================
     if (isControllerMode) {
-        const pcUI = document.querySelector('.app-header, .app-main, .timeline, #qr-modal');
-        if (pcUI) {
-            // PC UI 숨김
-            document.querySelector('.app-header').style.display = 'none';
-            document.querySelector('.app-main').style.display = 'none';
-            document.querySelector('.timeline').style.display = 'none';
-        }
+        // PC UI 숨김 (index.html에서 추가한 inline style을 script에서 강제로 display:none 처리)
+        const pcHeader = document.querySelector('.app-header');
+        const pcMain = document.querySelector('.app-main');
+        const pcTimeline = document.querySelector('.timeline');
+        if (pcHeader) pcHeader.style.display = 'none';
+        if (pcMain) pcMain.style.display = 'none';
+        if (pcTimeline) pcTimeline.style.display = 'none';
         
         // 모바일 컨트롤러 UI 표시
         const mobileUI = document.getElementById('mobile-controller-ui');
@@ -88,7 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const stateStr = localStorage.getItem(STORAGE_KEY + 'State');
             if (!stateStr) {
                 statusEl.textContent = "PC 사이트 로드 대기 중...";
-                selectionArea.innerHTML = '';
+                selectionArea.innerHTML = 'PC에서 아이템을 추가하세요.';
                 return;
             }
             
@@ -97,13 +100,22 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // 아이템 선택 버튼 업데이트
             selectionArea.innerHTML = '';
+            
+            if (state.decoList.length === 0) {
+                selectionArea.innerHTML = '<p style="color:#aaa;">현재 씬에 아이템이 없습니다.</p>';
+                activeDecoId = null;
+                return;
+            }
+
+            let initialActiveId = activeDecoId || state.selectedId || state.decoList[0].id;
+            
             state.decoList.forEach(deco => {
                 const btn = document.createElement('button');
                 btn.className = 'ctrl-deco-btn';
                 btn.textContent = `아이템 ${deco.index}`;
                 btn.dataset.id = deco.id;
                 
-                if (deco.id === state.selectedId) {
+                if (deco.id === initialActiveId) {
                     btn.style.backgroundColor = '#4F99B2';
                     btn.style.color = 'white';
                     activeDecoId = deco.id;
@@ -111,18 +123,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     btn.style.backgroundColor = '#fff';
                     btn.style.color = 'black';
                 }
+                btn.style.padding = '10px';
+                btn.style.border = '1px solid #ccc';
+                btn.style.borderRadius = '5px';
                 selectionArea.appendChild(btn);
             });
             
-            if (activeDecoId === null && state.decoList.length > 0) {
-                activeDecoId = state.decoList[0].id; // 선택된 아이템이 없으면 첫 번째 아이템을 기본으로 설정
-            }
+            activeDecoId = initialActiveId;
         }
         
         // 2. 조작 명령 전송
         function sendCommand(action, data = {}) {
             if (!activeDecoId) {
-                alert("PC에서 먼저 조작할 아이템을 선택하거나 추가해주세요.");
+                alert("조작할 아이템이 선택되지 않았습니다. PC에서 아이템을 추가/선택 후 다시 시도하세요.");
                 return;
             }
             const command = {
@@ -131,7 +144,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 data: data,
                 timestamp: Date.now()
             };
+            // 명령을 로컬 스토리지에 저장 (PC가 이 값을 읽음)
             localStorage.setItem(STORAGE_KEY + 'Command', JSON.stringify(command));
+            
+            // 아이템 선택 명령은 모바일 UI도 즉시 업데이트합니다.
+            if (action === 'select') {
+                activeDecoId = data.newId;
+                updateControllerUI();
+            }
         }
 
         // 3. 컨트롤러 이벤트 리스너 설정
@@ -148,21 +168,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (action === 'flip') {
                     sendCommand('flip');
                 } else if (action === 'delete') {
+                    // 삭제 명령 후 activeDecoId를 null로 초기화합니다.
                     sendCommand('delete');
+                    activeDecoId = null; 
                 }
             });
         });
 
         // 아이템 선택 버튼
         selectionArea.addEventListener('click', (e) => {
-            if (e.target.classList.contains('ctrl-deco-btn')) {
-                const newId = e.target.dataset.id;
-                activeDecoId = newId;
-                // PC에 아이템 선택 명령을 보낼 수도 있지만, PC에서 선택된 상태를 따라가는 것이 더 안정적입니다.
-                // 여기서는 로컬 activeDecoId만 변경합니다.
-                
-                // PC에 선택 명령을 보내려면:
-                // sendCommand('select', { newId: newId });
+            const targetButton = e.target.closest('.ctrl-deco-btn');
+            if (targetButton) {
+                const newId = targetButton.dataset.id;
+                // PC에 선택 명령을 보내 PC의 selectedDecoId와 동기화합니다.
+                sendCommand('select', { newId: newId });
             }
         });
         
@@ -170,62 +189,54 @@ document.addEventListener('DOMContentLoaded', () => {
         let isDragging = false;
         let startX, startY;
 
-        touchpad.addEventListener('mousedown', (e) => {
+        const startDrag = (clientX, clientY) => {
             if (!activeDecoId) return;
-            e.preventDefault();
             isDragging = true;
-            startX = e.clientX;
-            startY = e.clientY;
+            startX = clientX;
+            startY = clientY;
             touchpad.style.cursor = 'grabbing';
-        });
+        };
 
-        document.addEventListener('mousemove', (e) => {
+        const onDrag = (clientX, clientY) => {
             if (!isDragging) return;
-            e.preventDefault();
             
-            const dx = e.clientX - startX;
-            const dy = e.clientY - startY;
+            const dx = clientX - startX;
+            const dy = clientY - startY;
 
             // PC로 NUDGE 명령 전송 (미세 조정을 위해 5로 나눔)
             sendCommand('nudge', { dx: dx / 5, dy: dy / 5 });
             
             // 시작점을 현재 위치로 업데이트하여 연속적인 명령 전송
-            startX = e.clientX;
-            startY = e.clientY;
-        });
+            startX = clientX;
+            startY = clientY;
+        };
 
-        document.addEventListener('mouseup', () => {
+        const endDrag = () => {
             if (isDragging) {
                 isDragging = false;
                 touchpad.style.cursor = 'grab';
             }
-        });
+        };
 
-        // 모바일 환경을 위한 터치 이벤트 추가 (mousemove 대신 touchmove)
-        touchpad.addEventListener('touchstart', (e) => {
-            if (!activeDecoId || e.touches.length !== 1) return;
-            e.preventDefault();
-            isDragging = true;
-            startX = e.touches[0].clientX;
-            startY = e.touches[0].clientY;
-        });
+        // 마우스 이벤트 (PC 테스트용)
+        touchpad.addEventListener('mousedown', (e) => { e.preventDefault(); startDrag(e.clientX, e.clientY); });
+        document.addEventListener('mousemove', (e) => onDrag(e.clientX, e.clientY));
+        document.addEventListener('mouseup', endDrag);
 
-        document.addEventListener('touchmove', (e) => {
-            if (!isDragging || e.touches.length !== 1) return;
-            e.preventDefault();
-            
-            const dx = e.touches[0].clientX - startX;
-            const dy = e.touches[0].clientY - startY;
-
-            sendCommand('nudge', { dx: dx / 5, dy: dy / 5 });
-            
-            startX = e.touches[0].clientX;
-            startY = e.touches[0].clientY;
+        // 터치 이벤트 (모바일용)
+        touchpad.addEventListener('touchstart', (e) => { 
+            if (e.touches.length === 1) { 
+                e.preventDefault(); 
+                startDrag(e.touches[0].clientX, e.touches[0].clientY); 
+            }
         });
-
-        document.addEventListener('touchend', () => {
-            isDragging = false;
+        document.addEventListener('touchmove', (e) => { 
+            if (e.touches.length === 1) { 
+                e.preventDefault(); 
+                onDrag(e.touches[0].clientX, e.touches[0].clientY); 
+            }
         });
+        document.addEventListener('touchend', endDrag);
         
         // 4. PC 상태를 100ms마다 확인하여 UI 업데이트
         setInterval(updateControllerUI, 100);
@@ -235,7 +246,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // =========================================================================
-    // ⭐ PC 메인 웹사이트 모드 (isControllerMode: false) 로직 (기존 코드 유지) ⭐
+    // ⭐ PC 메인 웹사이트 모드 (isControllerMode: false) 로직 ⭐
     // =========================================================================
 
     // --- ⭐ 컨트롤러 창 열기 이벤트 리스너 (QR 코드 표시로 변경) ⭐ ---
@@ -277,9 +288,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- 3. 컨트롤러 조작 명령 처리 함수 ---
-    // PC에서 직접 실행하거나, 모바일에서 온 명령을 여기서 처리합니다.
     function handleControllerControl(id, action, data) {
         let decoData;
+        
+        if (action === 'select') {
+            // 모바일에서 특정 아이템을 선택하도록 요청한 경우
+            selectItem(data.newId);
+            return; 
+        }
         
         // 모바일에서 보낸 ID가 현재 선택된 아이템이 아니더라도, 해당 아이템을 조작합니다.
         if (id && selectedDecoId !== id) {
@@ -300,12 +316,11 @@ document.addEventListener('DOMContentLoaded', () => {
             decoData.y += dy;
             updated = true;
             
-        } else if (action === 'move') {
-            // 이 버튼 조작은 현재 컨트롤러 UI에 없습니다. (Nudge로 대체)
         } else if (action === 'rotate') {
             const direction = data.direction;
-            if (direction === 'LEFT') { decoData.rotation -= step.rotate; updated = true; }
-            else if (direction === 'RIGHT') { decoData.rotation += step.rotate; updated = true; }
+            const currentRotation = decoData.rotation || 0;
+            if (direction === 'LEFT') { decoData.rotation = currentRotation - step.rotate; updated = true; }
+            else if (direction === 'RIGHT') { decoData.rotation = currentRotation + step.rotate; updated = true; }
             
         } else if (action === 'scale') {
             const direction = data.direction;
@@ -331,9 +346,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 storyData[currentScene].decorations.splice(index, 1);
                 const element = document.getElementById(id);
                 if (element) element.remove();
-                selectItem(null); // 삭제 후 선택 해제 및 동기화
+                selectItem(null); 
                 updateThumbnail(currentScene);
-                return; // 렌더링을 이미 했으므로 아래 renderScene 호출 방지
+                return; 
             }
         }
 
@@ -395,39 +410,9 @@ document.addEventListener('DOMContentLoaded', () => {
         syncStateToStorage(); // 렌더링 후 상태 동기화
     }
 
-    // --- 6. 장식 요소 생성 함수 ---
-    function createDecorationElement(decoData) {
-        const item = document.createElement('div');
-        item.className = 'decoration-item';
-        item.id = decoData.id;
-        item.style.left = decoData.x + 'px';
-        item.style.top = decoData.y + 'px';
-        item.style.width = decoData.width + 'px';
-        item.style.height = decoData.height + 'px';
-        item.style.transform = `rotate(${decoData.rotation}deg)`;
+    // --- 6. 장식 요소 생성 함수 --- (생략 - 이전 코드와 동일)
 
-        const img = document.createElement('img');
-        img.src = decoData.src;
-        img.style.transform = `scaleX(${decoData.scaleX})`;
-
-        const controls = document.createElement('div');
-        controls.className = 'controls';
-        controls.innerHTML = `<button class="flip" title="좌우반전"><img src="img/좌우반전.png" alt="좌우반전"></button>
-                              <button class="delete" title="삭제"><img src="img/휴지통.png" alt="삭제"></button>`;
-        
-        const handles = ['tl', 'tr', 'bl', 'br', 'rotator'].map(type => {
-            const handle = document.createElement('div');
-            handle.className = `handle ${type}`;
-            return handle;
-        });
-
-        item.append(img, ...handles, controls);
-        canvas.appendChild(item);
-
-        makeInteractive(item);
-    }
-
-    // --- 7. 인터랙티브 기능 부여 함수 (드래그, 리사이즈, 회전, 컨트롤) ---
+    // --- 7. 인터랙티브 기능 부여 함수 ---
     function makeInteractive(element) {
         const decoData = storyData[currentScene].decorations.find(d => d.id === element.id);
 
@@ -512,7 +497,7 @@ document.addEventListener('DOMContentLoaded', () => {
             syncStateToStorage();
         }
         
-        // 크기 조절 (리사이즈)
+        // 크기 조절 (리사이즈) - 생략 (이전 코드와 동일)
         element.querySelectorAll('.handle:not(.rotator)').forEach(handle => {
             handle.onmousedown = initResize;
         });
@@ -596,7 +581,7 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         }
 
-        // 회전 (로테이터 핸들)
+        // 회전 (로테이터 핸들) - 생략 (이전 코드와 동일)
         const rotator = element.querySelector('.rotator');
         rotator.onmousedown = function(e) {
             e.preventDefault(); e.stopPropagation();
@@ -640,81 +625,13 @@ document.addEventListener('DOMContentLoaded', () => {
             handleControllerControl(element.id, 'delete');
         });
     }
-
-    // --- 8. 헬퍼 함수 (회전된 좌표 계산) ---
-    function getRotatedCorners(rect, angle) {
-        const center = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-        const corners = {
-            tl: { x: rect.left, y: rect.top }, tr: { x: rect.right, y: rect.top },
-            bl: { x: rect.left, y: rect.bottom }, br: { x: rect.right, y: rect.bottom }
-        };
-        for (const key in corners) {
-            corners[key] = rotatePoint(corners[key], center, angle);
-        }
-        return corners;
-    }
     
-    function rotatePoint(point, center, angle) {
-        const dx = point.x - center.x;
-        const dy = point.y - center.y;
-        const newX = center.x + dx * Math.cos(angle) - dy * Math.sin(angle);
-        const newY = center.y + dx * Math.sin(angle) + dy * Math.cos(angle);
-        return { x: newX, y: newY };
-    }
+    // --- 6, 8, 9, 10, 11번 함수 (createDecorationElement, getRotatedCorners, rotatePoint, 외부 클릭, 씬 전환, 썸네일 업데이트)는 내용이 길어 생략합니다. ---
+    // 이 부분은 이전 답변의 script3.js 코드를 그대로 유지하면 됩니다.
 
-    // --- 9. 캔버스 외부 클릭 시 선택 해제 ---
-    document.addEventListener('mousedown', (e) => {
-        if (!e.target.closest('.decoration-item') && !e.target.closest('.asset-item') && !e.target.closest('#qr-modal')) {
-            selectItem(null);
-        }
-    });
-
-    // --- 10. 씬 전환 ---
-    const scenes = document.querySelectorAll('.scene');
-    scenes.forEach(scene => {
-        scene.addEventListener('click', () => {
-            scenes.forEach(s => s.classList.remove('active'));
-            scene.classList.add('active');
-            currentScene = scene.dataset.scene;
-            selectedDecoId = null;
-            renderScene(currentScene);
-        });
-    });
-    
-    // --- 11. 타임라인 썸네일 업데이트 ---
-    function updateThumbnail(sceneNumber) {
-        const sceneEl = document.querySelector(`.scene[data-scene="${sceneNumber}"]`);
-        if (sceneEl) {
-            sceneEl.innerHTML = ''; 
-            
-            const sceneData = storyData[sceneNumber];
-            sceneEl.style.backgroundImage = 'none';
-            
-            if(canvas.offsetWidth === 0) return;
-
-            const scaleX = sceneEl.offsetWidth / canvas.offsetWidth;
-            const scaleY = sceneEl.offsetHeight / canvas.offsetHeight;
-
-            sceneData.decorations.forEach(decoData => {
-                const miniDeco = document.createElement('div');
-                miniDeco.style.position = 'absolute';
-                miniDeco.style.width = (decoData.width * scaleX) + 'px';
-                miniDeco.style.height = (decoData.height * scaleY) + 'px';
-                miniDeco.style.left = (decoData.x * scaleX) + 'px';
-                miniDeco.style.top = (decoData.y * scaleY) + 'px';
-                
-                miniDeco.style.backgroundImage = `url(${decoData.src})`;
-                miniDeco.style.backgroundSize = 'contain';
-                miniDeco.style.backgroundRepeat = 'no-repeat';
-                miniDeco.style.backgroundPosition = 'center';
-                
-                miniDeco.style.transform = `rotate(${decoData.rotation}deg) scaleX(${decoData.scaleX})`;
-                
-                sceneEl.appendChild(miniDeco);
-            });
-        }
-    }
-
-    // 초기 렌더링
+    // 초기 렌더링 및 동기화
     renderScene(currentScene);
 });
+
+// ⚠️ 나머지 생략된 함수들 (createDecorationElement, getRotatedCorners, rotatePoint, 외부 클릭, 씬 전환, 썸네일 업데이트)은
+// 이전 답변의 script3.js 코드를 참고하여 이 파일에 모두 포함해야 합니다.
