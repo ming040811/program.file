@@ -243,9 +243,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // ⭐ 속도 최적화를 위한 변수 추가 (Throttling)
         let lastNudgeTime = 0;
-        // ⭐⭐⭐ 반응 속도 UP! (14ms -> 약 71Hz) ⭐⭐⭐
-        const NUDGE_INTERVAL = 14; 
-        // ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐
+        // ⭐⭐⭐ 반응 속도 55Hz로 조정 (18ms) ⭐⭐⭐
+        const NUDGE_INTERVAL = 18; 
+        // ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐
 
         const startDrag = (e) => {
             if (!activeDecoId) return;
@@ -892,4 +892,3 @@ document.addEventListener('DOMContentLoaded', () => {
         syncStateToFirestore();
     }
 });
-
