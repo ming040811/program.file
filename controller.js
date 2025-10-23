@@ -1,109 +1,131 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // 캔버스 미리보기 관련 요소 제거됨
+    const canvas = document.getElementById('touch-canvas');
+    const statusText = document.getElementById('controller-status');
     const controlPanel = document.querySelector('.control-panel');
-    const touchPads = document.querySelectorAll('.touch-pad');
 
-    let currentDecoList = []; // ID와 Index 정보 (최대 3개)
+    let currentDecoList = []; // PC로부터 받은 아이템 목록
     let selectedDecoId = null;
+    let dotPositions = {}; // 모바일에서 버튼 위치 기억 (id: {x, y})
 
-    // --- 1. 메인 창으로 메시지 전송 함수 ---
+    // 속도 제어(Throttling)를 위한 변수
+    let lastNudgeTime = 0;
+    const NUDGE_INTERVAL = 20; // 20ms (초당 50번)
+
+    // --- 1. 메인 창으로 메시지 전송 ---
     function sendMessage(type, data = {}) {
         if (window.opener) {
             window.opener.postMessage({ type, ...data }, '*');
+        } else {
+            console.warn('Opener (메인 창)를 찾을 수 없습니다.');
         }
     }
 
-    // --- 2. 터치패드 동적 제어 및 선택 상태 업데이트 ---
-    function updateTouchPads() {
-        touchPads.forEach(pad => {
-            pad.classList.remove('active', 'selected');
+    // --- 2. 동적 버튼(.deco-dot) 렌더링 ---
+    function renderDecoDots() {
+        if (!canvas) return;
+        
+        // 기존 버튼 모두 삭제
+        canvas.innerHTML = ''; 
+
+        // PC에서 받은 아이템 목록을 기반으로 버튼 다시 생성
+        currentDecoList.forEach((deco) => {
+            const dot = document.createElement('div');
+            dot.className = 'deco-dot';
+            dot.dataset.id = deco.id;
+
+            // 저장된 위치가 있으면 사용, 없으면 중앙에 배치
+            const pos = dotPositions[deco.id] || { 
+                x: canvas.offsetWidth / 2, 
+                y: canvas.offsetHeight / 2 
+            };
+            
+            dot.style.left = `${pos.x}px`;
+            dot.style.top = `${pos.y}px`;
+
+            // 선택된 아이템이면 .selected 클래스 추가
+            if (deco.id === selectedDecoId) {
+                dot.classList.add('selected');
+            }
+
+            // 이벤트 리스너 추가
+            dot.addEventListener('click', () => selectDot(deco.id));
+            dot.addEventListener('mousedown', initDrag);
+            dot.addEventListener('touchstart', initDrag, { passive: true });
+
+            canvas.appendChild(dot);
         });
 
-        currentDecoList.forEach((deco, index) => {
-            const padIndex = index + 1;
-            const pad = document.getElementById(`touch-pad-${padIndex}`);
-            if (pad) {
-                pad.classList.add('active'); 
-                
-                if (deco.id === selectedDecoId) {
-                    pad.classList.add('selected');
-                }
-            }
-        });
-        
-        // 아이템이 선택되어 있을 때만 조작 버튼 활성화
+        // 아이템이 선택되었는지 여부에 따라 컨트롤 버튼 활성화/비활성화
         const isSelected = selectedDecoId !== null;
-        document.querySelectorAll('.control-btn').forEach(btn => {
+        document.querySelectorAll('.control-panel .control-btn').forEach(btn => {
             btn.disabled = !isSelected;
         });
-        controlPanel.style.opacity = isSelected ? 1 : 0.4;
     }
 
-    // --- 3. 터치패드 클릭 (아이템 선택) 및 드래그 (이동) 이벤트 리스너 ---
-    touchPads.forEach(pad => {
-        // 아이템 선택 (클릭/터치)
-        pad.addEventListener('click', (e) => {
-            if (!pad.classList.contains('active')) return;
-            
-            const index = parseInt(pad.dataset.index);
-            const deco = currentDecoList.find((_, i) => i + 1 === index);
+    // --- 3. 아이템 선택 함수 ---
+    function selectDot(decoId) {
+        if (selectedDecoId === decoId) return; // 이미 선택됨
+        
+        selectedDecoId = decoId;
+        sendMessage('DECO_SELECT', { id: selectedDecoId });
+        renderDecoDots(); // 선택 상태를 반영하여 다시 그리기
+    }
 
-            if (deco && selectedDecoId !== deco.id) {
-                selectedDecoId = deco.id;
-                sendMessage('DECO_SELECT', { id: selectedDecoId });
-                updateTouchPads();
-            }
-        });
-        
-        // ⭐ 터치패드 드래그(이동) 이벤트 ⭐
-        pad.addEventListener('mousedown', initDrag);
-        pad.addEventListener('touchstart', initDrag, { passive: true });
-    });
-    
-    // --- 4. 터치패드 이동 (드래그) 구현 (핵심 로직 변경) ---
+    // --- 4. 버튼 드래그(이동) 로직 ---
     function initDrag(e) {
-        const targetPad = e.currentTarget;
-        
-        // 1. 활성화 및 선택 상태 확인
-        if (!targetPad.classList.contains('active')) return;
-        if (!targetPad.classList.contains('selected')) {
-            targetPad.click(); // 선택 후 드래그 가능하도록 선택 처리
-            return; 
+        const targetDot = e.currentTarget;
+        const decoId = targetDot.dataset.id;
+
+        // 1. 클릭 시 우선 선택
+        if (!targetDot.classList.contains('selected')) {
+            selectDot(decoId);
         }
 
         e.preventDefault();
-        
+
         const isTouch = e.type.startsWith('touch');
-        
         let lastX = isTouch ? e.touches[0].clientX : e.clientX;
         let lastY = isTouch ? e.touches[0].clientY : e.clientY;
-        
-        const style = window.getComputedStyle(targetPad);
-        // 패드의 현재 offset을 계산 (초기 left/top 값)
-        let padOffsetX = parseFloat(style.getPropertyValue('left'));
-        let padOffsetY = parseFloat(style.getPropertyValue('top'));
+
+        // 캔버스 경계 계산
+        const canvasRect = canvas.getBoundingClientRect();
 
         function drag(e_move) {
+            // ⭐ 속도 최적화: 20ms 이내의 이벤트는 무시
+            const now = Date.now();
+            if (now - lastNudgeTime < NUDGE_INTERVAL) {
+                return;
+            }
+            lastNudgeTime = now;
+
             const currentX = isTouch ? e_move.touches[0].clientX : e_move.clientX;
             const currentY = isTouch ? e_move.touches[0].clientY : e_move.clientY;
             
             const dx = currentX - lastX; // 마우스/터치 이동 거리 (X)
             const dy = currentY - lastY; // 마우스/터치 이동 거리 (Y)
+
+            // 1. 버튼 DOM 위치 업데이트
+            let newLeft = targetDot.offsetLeft + dx;
+            let newTop = targetDot.offsetTop + dy;
+
+            // 2. 캔버스 경계 안에서만 움직이도록 제한
+            newLeft = Math.max(0, Math.min(newLeft, canvasRect.width - targetDot.offsetWidth));
+            newTop = Math.max(0, Math.min(newTop, canvasRect.height - targetDot.offsetHeight));
+
+            targetDot.style.left = `${newLeft}px`;
+            targetDot.style.top = `${newTop}px`;
+
+            // 3. 모바일 컨트롤러 내 위치 저장
+            dotPositions[decoId] = { x: newLeft, y: newTop };
             
-            // 1. 터치패드 자체 위치 업데이트
-            padOffsetX += dx;
-            padOffsetY += dy;
-            
-            targetPad.style.left = padOffsetX + 'px';
-            targetPad.style.top = padOffsetY + 'px';
-            
-            // 2. 메인 창으로 아이템 이동 요청 전송
-            // (dx, dy 만큼 아이템을 픽셀 단위로 이동하도록 메인 창에 요청)
+            // 4. 메인 창으로 'nudge' (이동) 요청 전송
+            // dx, dy를 보내서 PC가 실제 아이템을 움직이게 함
+            // (PC에서는 dx/dy 값을 적절히 스케일링해야 할 수 있음)
             sendMessage('DECO_CONTROL', { 
                 id: selectedDecoId, 
-                action: 'nudge', // 새로운 액션 타입 (이동 거리를 직접 전달)
-                dx: dx,
-                dy: dy
+                action: 'nudge',
+                dx: dx / 5, // 값을 줄여서 PC에서 더 미세하게 움직이도록 함
+                dy: dy / 5
             });
             
             lastX = currentX;
@@ -115,9 +137,6 @@ document.addEventListener('DOMContentLoaded', () => {
             document.removeEventListener('mouseup', stopDrag);
             document.removeEventListener('touchmove', drag);
             document.removeEventListener('touchend', stopDrag);
-            
-            // 드래그가 끝난 후, 버튼을 원래의 CSS 위치로 리셋 (필요하다면)
-            // 현재는 버튼이 마지막 드래그 위치에 머무르도록 유지합니다.
         }
 
         document.addEventListener('mousemove', drag);
@@ -126,36 +145,76 @@ document.addEventListener('DOMContentLoaded', () => {
         document.addEventListener('touchend', stopDrag);
     }
     
-    // --- 5. 회전/크기 조절 버튼 이벤트 리스너 (이전과 동일) ---
-    document.querySelectorAll('.control-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            if (!selectedDecoId) return; 
+    // --- 5. 오른쪽 컨트롤 패널 버튼 이벤트 ---
+    controlPanel.addEventListener('click', (e) => {
+        const button = e.target.closest('.control-btn');
+        if (!button || button.disabled) return;
 
-            const action = btn.dataset.action;
-            const direction = btn.dataset.direction;
-            
-            // 메인 창으로 조작 명령 전송
-            sendMessage('DECO_CONTROL', { id: selectedDecoId, action: action, direction: direction });
-        });
-    });
+        const action = button.dataset.action;
+        const direction = button.dataset.direction; // 회전/크기 조절용
 
-    // --- 6. 캔버스 프리뷰 렌더링 제거됨 ---
-
-
-    // --- 7. 메인 창으로부터 메시지 수신 처리 (양방향 동기화 핵심) ---
-    window.addEventListener('message', (event) => {
-        if (event.data.type === 'DECO_LIST_UPDATE') {
-            currentDecoList = event.data.data;
-            selectedDecoId = event.data.selectedId;
-            
-            // 이전 단계에서 사용했던 fullDecoData 및 renderPreview 호출은 제거됨
-            
-            updateTouchPads(); 
+        if (action === 'flip') {
+            // 좌우반전은 방향이 따로 없으므로 action만 전송
+             sendMessage('DECO_CONTROL', { 
+                id: selectedDecoId, 
+                action: 'flip'
+            });
+        } else if (action === 'delete') {
+             sendMessage('DECO_CONTROL', { 
+                id: selectedDecoId, 
+                action: 'delete'
+            });
+        } else {
+            // 회전, 크기 조절
+             sendMessage('DECO_CONTROL', { 
+                id: selectedDecoId, 
+                action: action, 
+                direction: direction 
+            });
         }
     });
 
-    // --- 8. 초기 요청 ---
+    // --- 6. 메인 창으로부터 메시지 수신 ---
+    window.addEventListener('message', (event) => {
+        // (보안을 위해 event.origin을 확인하는 것이 좋지만, 일단 로직만 구현)
+        if (!event.data) return;
+
+        const type = event.data.type;
+        
+        if (type === 'DECO_LIST_UPDATE') {
+            // PC에서 아이템 목록이 업데이트됨 (추가/삭제)
+            currentDecoList = event.data.data;
+            selectedDecoId = event.data.selectedId;
+
+            // 삭제된 아이템의 위치 정보도 동기화
+            const newPositions = {};
+            currentDecoList.forEach(deco => {
+                if (dotPositions[deco.id]) {
+                    newPositions[deco.id] = dotPositions[deco.id];
+                }
+            });
+            dotPositions = newPositions;
+
+            renderDecoDots(); // 캔버스에 버튼 다시 그리기
+
+        } else if (type === 'STATUS_UPDATE') {
+            // PC에서 씬(Scene) 정보가 바뀜
+            if (statusText) {
+                statusText.textContent = event.data.message || '연결됨';
+            }
+        }
+    });
+
+    // --- 7. 초기화 ---
     window.onload = () => {
+        // 메인 창(Opener)에게 현재 아이템 목록과 상태를 요청
         sendMessage('REQUEST_DECO_LIST');
+        
+        // 렌더링이 끝난 후 캔버스 크기에 맞춰 버튼을 다시 그림
+        // (초기 로드 시 캔버스 크기 계산 오차 방지)
+        setTimeout(renderDecoDots, 100); 
     };
+
+    // 창 크기가 변경될 때 버튼을 다시 그려서 비율 유지
+    window.addEventListener('resize', renderDecoDots);
 });
