@@ -1,12 +1,11 @@
-<!DOCTYPE html>
+<<!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>나만의 동화 만들기 - 꾸미기 모드 (모바일)</title>
     <link rel="stylesheet" href="style3.css">
-    
-    </head>
+</head>
 <body>
 
     <div id="mobile-controller-ui" style="display: none; height: 100vh; width: 100vw; background: #f0f0f0; flex-direction: column; align-items: center; justify-content: space-around; padding: 20px; box-sizing: border-box;">
@@ -44,10 +43,17 @@
     <div class="app-main">
         <aside class="asset-panel">
             <div class="asset-container">
+                <div id="backgrounds" class="asset-list">
+                    <img src="https://placehold.co/100x75/E0F2F1/1E3A8A?text=숲" class="asset-item" data-type="background" data-canvas-src="https://placehold.co/800x450/E0F2F1/1E3A8A?text=숲_배경">
+                    <img src="https://placehold.co/100x75/FEE2E2/991B1B?text=도시" class="asset-item" data-type="background" data-canvas-src="https://placehold.co/800x450/FEE2E2/991B1B?text=도시_배경">
+                    <img src="https://placehold.co/100x75/DBEAFE/1E40AF?text=우주" class="asset-item" data-type="background" data-canvas-src="https://placehold.co/800x450/DBEAFE/1E40AF?text=우주_배경">
+                </div>
+
                 <div id="decorations" class="asset-list">
                     <img src="img/사각형.png" class="asset-item" data-type="decoration" data-canvas-src="img/사각형.png">
                     <img src="img/나비.png" class="asset-item" data-type="decoration" data-canvas-src="img/나비.png">
-                    </div>
+                    <img src="https://placehold.co/100x100/BFDBFE/1E40AF?text=별" class="asset-item" data-type="decoration" data-canvas-src="https://placehold.co/100x100/BFDBFE/1E40AF?text=별.png">
+                </div>
             </div>
         </aside>
 
@@ -61,12 +67,12 @@
             
             <div class="timeline">
                 <div class="timeline-strip">
-                    <div class="scene active" data-scene="1"></div><span class="arrow">→</span>
-                    <div class="scene" data-scene="2"></div><span class="arrow">→</span>
-                    <div class="scene" data-scene="3"></div><span class="arrow">→</span>
-                    <div class="scene" data-scene="4"></div><span class="arrow">→</span>
-                    <div class="scene" data-scene="5"></div><span class="arrow">→</span>
-                    <div class="scene" data-scene="6"></div>
+                    <div class="scene scene-thumbnail active" data-scene="1"></div><span class="arrow">→</span>
+                    <div class="scene scene-thumbnail" data-scene="2"></div><span class="arrow">→</span>
+                    <div class="scene scene-thumbnail" data-scene="3"></div><span class="arrow">→</span>
+                    <div class="scene scene-thumbnail" data-scene="4"></div><span class="arrow">→</span>
+                    <div class="scene scene-thumbnail" data-scene="5"></div><span class="arrow">→</span>
+                    <div class="scene scene-thumbnail" data-scene="6"></div>
                 </div>
             </div>
         </main>
@@ -81,12 +87,33 @@
             padding: 15px; 
             border-radius: 5px;">
         </div>
-        <button onclick="document.getElementById('qr-modal').style.display = 'none';" 
+        <button id="close-qr-btn" onclick="document.getElementById('qr-modal').style.display = 'none';" 
                 style="margin-top: 20px; padding: 10px 20px; font-size: 16px; cursor: pointer;">닫기</button>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
 
+    <script>
+        // 2. Firebase Config (고객 제공 값으로 대체되었습니다)
+        const firebaseConfig = {
+            apiKey: "AIzaSyDdnu-055WvBl0haybnPtgjH2FS4lcF8LQ",
+            authDomain: "controll-b5008.firebaseapp.com",
+            projectId: "controll-b5008",
+            storageBucket: "controll-b5008.firebasestorage.app",
+            messagingSenderId: "493484578933",
+            appId: "1:493484578933:web:025c4c75af43988969403c",
+            measurementId: "G-GFZD5SX3G2"
+        };
+        
+        // 3. Firebase 앱 초기화 및 Firestore 객체를 전역 변수(db)로 선언
+        // script3.js는 이 전역 변수 db에 접근하여 통신을 수행합니다.
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore(); 
+    </script>
+    
     <script src="script3.js"></script>
     
 </body>
