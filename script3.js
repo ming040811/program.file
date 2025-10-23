@@ -2,6 +2,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Firebase 전역 객체 'db'는 index.html의 <script> 태그에서 초기화되었습니다.
     if (typeof db === 'undefined') {
         console.error("Firebase Firestore is not initialized. Make sure 'db' is available.");
+        // alert()는 사용하지 않습니다. 콘솔 로그로 대체합니다.
+        console.error("Firebase 연결 실패! HTML 파일의 설정값을 확인하세요.");
         return;
     }
 
@@ -49,7 +51,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // PC -> 모바일 (상태 동기화)
     async function syncStateToFirestore() {
-        // 모바일 컨트롤러에 보낼 아이템 목록 (최대 3개)
+        // PC 모드가 아니면 동기화 실행 안 함
+        if (isControllerMode) return; 
+
         const decoList = storyData[currentScene].decorations.slice(0, 3).map((deco, index) => ({
             id: deco.id,
             index: index + 1
@@ -75,6 +79,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let lastCommandTimestamp = 0; // 중복 실행 방지를 위한 타임스탬프
 
     function listenForControlCommands() {
+        // PC 모드에서만 명령을 수신함
+        if (isControllerMode) return; 
+
         // Firestore의 특정 문서(세션 ID)를 실시간 감시
         CONTROLLER_REF.onSnapshot((doc) => {
             if (doc.exists && doc.data().command) {
@@ -104,13 +111,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // ⭐ 모바일 컨트롤러 모드 (isControllerMode: true) 로직 ⭐
     // =========================================================================
     if (isControllerMode) {
-        // PC UI 숨김 로직 (이전과 동일)
-        const pcUI = document.querySelector('.app-header, .app-main, .timeline, #qr-modal');
-        if (pcUI) {
-            document.querySelector('.app-header').style.display = 'none';
-            document.querySelector('.app-main').style.display = 'none';
-            document.querySelector('.timeline').style.display = 'none';
-        }
+        // PC UI 숨김
+        document.querySelector('.app-header').style.display = 'none';
+        document.querySelector('.app-main').style.display = 'none';
         
         // 모바일 컨트롤러 UI 표시
         const mobileUI = document.getElementById('mobile-controller-ui');
@@ -120,7 +123,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const selectionArea = document.getElementById('deco-selection');
         const touchpad = document.getElementById('touchpad');
         
-        // 1. PC 상태 수신 및 UI 업데이트 리스너 (속도 개선을 위해 PC의 selectedId를 따라감)
+        // 1. PC 상태 수신 및 UI 업데이트 리스너
         function listenForPCState() {
             CONTROLLER_REF.onSnapshot((doc) => {
                 if (!doc.exists || !doc.data().pcState) {
@@ -138,14 +141,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 state.decoList.forEach(deco => {
                     const btn = document.createElement('button');
-                    btn.className = 'ctrl-deco-btn';
+                    // CSS 파일에 정의된 클래스 사용
+                    btn.className = 'ctrl-deco-btn'; 
+                    // 인라인 스타일 적용 (기존 코드 유지)
+                    btn.style.padding = '10px';
+                    btn.style.border = '1px solid #ccc';
                     btn.textContent = `아이템 ${deco.index}`;
                     btn.dataset.id = deco.id;
                     
                     if (deco.id === state.selectedId) {
                         btn.style.backgroundColor = '#4F99B2';
                         btn.style.color = 'white';
-                        activeDecoId = deco.id; // PC의 선택된 아이템을 따라 activeDecoId 설정
+                        activeDecoId = deco.id;
                         hasActiveSelection = true;
                     } else {
                         btn.style.backgroundColor = '#fff';
@@ -173,16 +180,21 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // 2. 조작 명령 전송
         async function sendCommandToFirestore(action, data = {}) {
-            if (!activeDecoId) {
-                // 'select' 명령은 activeDecoId가 없어도 보낼 수 있어야 함
-                if (action !== 'select') {
-                    alert("PC에서 먼저 조작할 아이템을 선택하거나 추가해주세요.");
-                    return;
-                }
+            if (!activeDecoId && action !== 'select') {
+                // 'select' 액션은 activeDecoId가 없어도 전송 가능해야 함
+                return;
             }
+
+            // 'select' 액션은 data.newId를 id로 사용하고, 그 외는 activeDecoId 사용
+            let commandId = (action === 'select' && data.newId) ? data.newId : activeDecoId;
+            
+            // 'select'가 아닌데 commandId가 없으면 리턴
+            if (!commandId) {
+                 return;
+            }
+
             const command = {
-                // activeDecoId가 null일 경우, data.newId (select 명령)를 사용. 다른 명령은 activeDecoId를 사용.
-                id: activeDecoId || data.newId, 
+                id: commandId,
                 action: action,
                 data: data,
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
@@ -198,23 +210,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 3. 컨트롤러 이벤트 리스너 설정
         
-        // **새로 추가된 방향키 로직**
-        document.querySelectorAll('.ctrl-nudge-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const direction = btn.dataset.direction;
-                let dx = 0, dy = 0;
-                
-                // nudge는 PC에서 step.move=1로 설정되어 있으므로, 5px씩 움직이도록 dx, dy를 5로 설정
-                if (direction === 'UP') dy = -5;
-                else if (direction === 'DOWN') dy = 5;
-                else if (direction === 'LEFT') dx = -5;
-                else if (direction === 'RIGHT') dx = 5;
-
-                sendCommandToFirestore('nudge', { dx: dx, dy: dy });
-            });
-        });
-
-
         // 일반 버튼 (회전, 확대/축소, 반전, 삭제)
         document.querySelectorAll('#control-buttons .ctrl-action-btn').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -246,6 +241,11 @@ document.addEventListener('DOMContentLoaded', () => {
         let startX, startY;
         let isTouch = false;
 
+        // ⭐ 속도 최적화를 위한 변수 추가 (Throttling)
+        let lastNudgeTime = 0;
+        const NUDGE_INTERVAL = 50; // 50ms (초당 20번)
+        // ⭐ --- 여기까지 ---
+
         const startDrag = (e) => {
             if (!activeDecoId) return;
             e.preventDefault();
@@ -258,6 +258,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const onDrag = (e) => {
             if (!isDragging) return;
             e.preventDefault();
+
+            // ⭐ 속도 최적화: 50ms 이내의 이벤트는 무시
+            const now = Date.now();
+            if (now - lastNudgeTime < NUDGE_INTERVAL) {
+                return; 
+            }
+            lastNudgeTime = now;
+            // ⭐ --- 여기까지 ---
             
             const clientX = isTouch ? e.touches[0].clientX : e.clientX;
             const clientY = isTouch ? e.touches[0].clientY : e.clientY;
@@ -266,8 +274,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const dy = clientY - startY;
 
             // PC로 NUDGE 명령 전송 (미세 조정을 위해 5로 나눔)
-            // 터치패드 조작은 미세 조정으로 1px씩 움직이도록 
-            sendCommandToFirestore('nudge', { dx: dx, dy: dy }); 
+            sendCommandToFirestore('nudge', { dx: dx / 5, dy: dy / 5 });
             
             // 시작점을 현재 위치로 업데이트하여 연속적인 명령 전송
             startX = clientX;
@@ -350,39 +357,39 @@ document.addEventListener('DOMContentLoaded', () => {
                 selectedDecoId = id;
             }
         }
-        syncStateToFirestore(); // 상태 변경 시 컨트롤러에 동기화 (PC -> 모바일)
+        syncStateToFirestore(); // 상태 변경 시 컨트롤러에 동기화
     }
 
     // --- 3. 컨트롤러 조작 명령 처리 함수 ---
+    // PC에서 직접 실행하거나, 모바일에서 온 명령을 여기서 처리합니다.
     function handleControllerControl(id, action, data) {
         let decoData;
         
         // 모바일에서 보낸 ID가 현재 선택된 아이템이 아니더라도, 해당 아이템을 조작합니다.
         if (action === 'select') {
-            selectItem(data.newId); // 모바일에서 선택 요청이 오면, PC에서 선택하고 동기화
+            selectItem(data.newId);
             return;
         }
 
-        // 명령이 왔는데 현재 선택된 아이템이 모바일이 보낸 아이템과 다를 경우, 해당 아이템을 선택
+        // 모바일에서 보낸 ID로 아이템을 선택하고 조작
         if (id && selectedDecoId !== id) {
              selectItem(id);
         }
         
-        // 명령 처리
+        // 선택 해제 후 삭제 명령이 올 수 있으므로 selectedDecoId를 다시 확인
         if (selectedDecoId === null) return;
         
         decoData = storyData[currentScene].decorations.find(d => d.id === selectedDecoId);
         if (!decoData) return;
 
-        // Nudge는 모바일 터치패드/방향키에서 보내는 1픽셀 또는 5픽셀 단위로 적용
-        const step = { rotate: 5, scale: 0.02 }; 
+        const step = { move: 1, rotate: 5, scale: 0.02 }; // Nudge에 맞춰 move step을 줄였습니다.
         let updated = false;
 
         if (action === 'nudge') {
             const dx = data.dx || 0;
             const dy = data.dy || 0;
             
-            // 모바일에서 보낸 이동 값을 직접 적용
+            // 모바일에서 미세 조정을 위해 나눠서 보냈으므로, 여기서는 바로 적용
             decoData.x += dx;
             decoData.y += dy;
             updated = true;
@@ -430,17 +437,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- 4. 장식 아이템 추가 이벤트 핸들러 (PC에서만 작동) ---
     document.querySelectorAll('.asset-item[data-type="decoration"]').forEach(item => {
         item.addEventListener('click', () => {
-            // ⭐ 불필요한 아이템 추가 방지 로직 (유효한 src 확인) ⭐
-            const canvasImageSrc = item.dataset.canvasSrc || item.src; 
-            if (!canvasImageSrc || canvasImageSrc.includes('?')) {
-                 console.warn("Invalid asset source. Skipping item addition.");
-                 return; // src가 없거나 유효하지 않으면 추가 방지
-            }
-
             if (storyData[currentScene].decorations.length >= 3) {
-                alert("장식 아이템은 최대 3개까지만 추가할 수 있습니다.");
+                // alert() 대신 console.warn 사용
+                console.warn("장식 아이템은 최대 3개까지만 추가할 수 있습니다.");
                 return;
             }
+
+            const canvasImageSrc = item.dataset.canvasSrc || item.src; 
             
             let initialWidth = 200; 
             let initialHeight = 200;
@@ -469,6 +472,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 5. 씬 렌더링 함수 ---
     function renderScene(sceneNumber) {
+        if (!canvas) return; // canvas가 없으면 함수 종료
         const data = storyData[sceneNumber];
         
         // 기존 아이템 제거
@@ -487,7 +491,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 6. 장식 요소 생성 함수 ---
     function createDecorationElement(decoData) {
-        // ... (6번 함수는 이전과 동일, 이미지 문제와는 관련 없음) ...
+        if (!canvas) return; // canvas가 없으면 함수 종료
         const item = document.createElement('div');
         item.className = 'decoration-item';
         item.id = decoData.id;
@@ -499,12 +503,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const img = document.createElement('img');
         img.src = decoData.src;
+        // ❗️ 이미지 경로 확인! ❗️
+        img.onerror = function() { 
+            img.src = `https://placehold.co/${Math.round(decoData.width)}x${Math.round(decoData.height)}/eee/ccc?text=이미지+로드+실패`;
+        };
         img.style.transform = `scaleX(${decoData.scaleX})`;
 
         const controls = document.createElement('div');
         controls.className = 'controls';
-        controls.innerHTML = `<button class="flip" title="좌우반전"><img src="img/좌우반전.png" alt="좌우반전"></button>
-                              <button class="delete" title="삭제"><img src="img/휴지통.png" alt="삭제"></button>`;
+        // ❗️ 이미지 경로 확인! ❗️
+        controls.innerHTML = `<button class="flip" title="좌우반전"><img src="img/좌우반전.png" alt="좌우반전" onerror="this.parentNode.innerHTML='반전'"></button>
+                              <button class="delete" title="삭제"><img src="img/휴지통.png" alt="삭제" onerror="this.parentNode.innerHTML='삭제'"></button>`;
         
         const handles = ['tl', 'tr', 'bl', 'br', 'rotator'].map(type => {
             const handle = document.createElement('div');
@@ -519,9 +528,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- 7. 인터랙티브 기능 부여 함수 (드래그, 리사이즈, 회전, 컨트롤) ---
-    // ... (7번 함수는 이전과 동일) ...
     function makeInteractive(element) {
         const decoData = storyData[currentScene].decorations.find(d => d.id === element.id);
+        if (!decoData) return; // 데이터 못찾으면 중단
 
         // 선택
         element.addEventListener('mousedown', (e) => {
@@ -541,8 +550,8 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         function elementDrag(e) {
-            verticalGuide.style.display = 'none';
-            horizontalGuide.style.display = 'none';
+            if (verticalGuide) verticalGuide.style.display = 'none';
+            if (horizontalGuide) horizontalGuide.style.display = 'none';
 
             pos1 = pos3 - e.clientX;
             pos2 = pos4 - e.clientY;
@@ -554,6 +563,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const snapThreshold = 5; 
             
+            if (!canvas) return;
             const canvasWidth = canvas.offsetWidth;
             const canvasHeight = canvas.offsetHeight;
             const elementWidth = element.offsetWidth;
@@ -571,21 +581,25 @@ document.addEventListener('DOMContentLoaded', () => {
             // 가로 중앙 스냅
             if (Math.abs(elementCenterX - canvasCenterX) < snapThreshold) {
                 newLeft = canvasCenterX - elementWidth / 2;
-                verticalGuide.style.left = `${canvasCenterX}px`;
-                verticalGuide.style.display = 'block';
+                if (verticalGuide) {
+                    verticalGuide.style.left = `${canvasCenterX}px`;
+                    verticalGuide.style.display = 'block';
+                }
                 snappedX = true;
             }
 
             // 세로 중앙 스냅
             if (Math.abs(elementCenterY - canvasCenterY) < snapThreshold) {
                 newTop = canvasCenterY - elementHeight / 2;
-                horizontalGuide.style.top = `${canvasCenterY}px`;
-                horizontalGuide.style.display = 'block';
+                if (horizontalGuide) {
+                    horizontalGuide.style.top = `${canvasCenterY}px`;
+                    horizontalGuide.style.display = 'block';
+                }
                 snappedY = true;
             }
 
-            if (!snappedX) verticalGuide.style.display = 'none';
-            if (!snappedY) horizontalGuide.style.display = 'none';
+            if (!snappedX && verticalGuide) verticalGuide.style.display = 'none';
+            if (!snappedY && horizontalGuide) horizontalGuide.style.display = 'none';
             
             element.style.top = newTop + "px";
             element.style.left = newLeft + "px";
@@ -595,8 +609,8 @@ document.addEventListener('DOMContentLoaded', () => {
             document.onmouseup = null;
             document.onmousemove = null;
 
-            verticalGuide.style.display = 'none';
-            horizontalGuide.style.display = 'none';
+            if (verticalGuide) verticalGuide.style.display = 'none';
+            if (horizontalGuide) horizontalGuide.style.display = 'none';
 
             decoData.x = element.offsetLeft;
             decoData.y = element.offsetTop;
@@ -666,6 +680,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     y: pivot.y + rotatedCenterVector.y
                 };
 
+                if (!canvas) return;
                 const canvasRect = canvas.getBoundingClientRect();
                 const finalLeft = newGlobalCenter.x - (newWidth / 2) - canvasRect.left;
                 const finalTop = newGlobalCenter.y - (newHeight / 2) - canvasRect.top;
@@ -690,51 +705,58 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 회전 (로테이터 핸들)
         const rotator = element.querySelector('.rotator');
-        rotator.onmousedown = function(e) {
-            e.preventDefault(); e.stopPropagation();
-            const rect = element.getBoundingClientRect();
-            const centerX = rect.left + rect.width / 2;
-            const centerY = rect.top + rect.height / 2;
+        if (rotator) {
+            rotator.onmousedown = function(e) {
+                e.preventDefault(); e.stopPropagation();
+                const rect = element.getBoundingClientRect();
+                const centerX = rect.left + rect.width / 2;
+                const centerY = rect.top + rect.height / 2;
 
-            const startAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * (180 / Math.PI);
-            let startRotation = decoData.rotation;
+                const startAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * (180 / Math.PI);
+                let startRotation = decoData.rotation;
 
-            document.onmousemove = function(e_move) {
-                const currentAngle = Math.atan2(e_move.clientY - centerY, e_move.clientX - centerX) * (180 / Math.PI);
-                let newRotation = startRotation + (currentAngle - startAngle);
-                
-                const snapThreshold = 6;
-                const snappedAngle = Math.round(newRotation / 90) * 90;
+                document.onmousemove = function(e_move) {
+                    const currentAngle = Math.atan2(e_move.clientY - centerY, e.clientX - centerX) * (180 / Math.PI);
+                    let newRotation = startRotation + (currentAngle - startAngle);
+                    
+                    const snapThreshold = 6;
+                    const snappedAngle = Math.round(newRotation / 90) * 90;
 
-                if (Math.abs(newRotation - snappedAngle) < snapThreshold) {
-                    newRotation = snappedAngle;
-                }
-                
-                element.style.transform = `rotate(${newRotation}deg)`;
-                decoData.rotation = newRotation;
+                    if (Math.abs(newRotation - snappedAngle) < snapThreshold) {
+                        newRotation = snappedAngle;
+                    }
+                    
+                    element.style.transform = `rotate(${newRotation}deg)`;
+                    decoData.rotation = newRotation;
+                };
+                document.onmouseup = function() {
+                    document.onmousemove = null; document.onmouseup = null;
+                    updateThumbnail(currentScene);
+                    syncStateToFirestore();
+                };
             };
-            document.onmouseup = function() {
-                document.onmousemove = null; document.onmouseup = null;
-                updateThumbnail(currentScene);
-                syncStateToFirestore();
-            };
-        };
+        }
 
         // 좌우 반전 버튼
-        element.querySelector('.flip').addEventListener('click', (e) => {
-            e.stopPropagation();
-            handleControllerControl(element.id, 'flip');
-        });
+        const flipButton = element.querySelector('.flip');
+        if (flipButton) {
+            flipButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                handleControllerControl(element.id, 'flip');
+            });
+        }
         
         // 삭제 버튼
-        element.querySelector('.delete').addEventListener('click', (e) => {
-            e.stopPropagation();
-            handleControllerControl(element.id, 'delete');
-        });
+        const deleteButton = element.querySelector('.delete');
+        if (deleteButton) {
+            deleteButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                handleControllerControl(element.id, 'delete');
+            });
+        }
     }
 
     // --- 8. 헬퍼 함수 (회전된 좌표 계산) ---
-    // ... (8번 함수는 이전과 동일) ...
     function getRotatedCorners(rect, angle) {
         const center = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
         const corners = {
@@ -771,12 +793,10 @@ document.addEventListener('DOMContentLoaded', () => {
             currentScene = scene.dataset.scene;
             selectedDecoId = null;
             renderScene(currentScene);
-            syncStateToFirestore(); // 씬 전환 시 상태 동기화
         });
     });
     
     // --- 11. 타임라인 썸네일 업데이트 ---
-    // ... (11번 함수는 이전과 동일) ...
     function updateThumbnail(sceneNumber) {
         const sceneEl = document.querySelector(`.scene[data-scene="${sceneNumber}"]`);
         if (sceneEl) {
@@ -785,7 +805,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const sceneData = storyData[sceneNumber];
             sceneEl.style.backgroundImage = 'none';
             
-            if(canvas.offsetWidth === 0) return;
+            if(!canvas || canvas.offsetWidth === 0) return;
 
             const scaleX = sceneEl.offsetWidth / canvas.offsetWidth;
             const scaleY = sceneEl.offsetHeight / canvas.offsetHeight;
