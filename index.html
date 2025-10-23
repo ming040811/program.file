@@ -45,9 +45,9 @@
         <aside class="asset-panel">
             <div class="asset-container">
                 <div id="decorations" class="asset-list">
-                    <!-- 아이템 경로 확인! -->
-                    <img src="img/사각형.png" class="asset-item" data-type="decoration" data-canvas-src="img/사각형.png">
-                    <img src="img/나비.png" class="asset-item" data-type="decoration" data-canvas-src="img/나비.png">
+                    <!-- ❗️ 이미지 경로 확인! ❗️ -->
+                    <img src="img/사각형.png" class="asset-item" data-type="decoration" data-canvas-src="img/사각형.png" onerror="this.src='https://placehold.co/120x120/eee/ccc?text=사각형.png';">
+                    <img src="img/나비.png" class="asset-item" data-type="decoration" data-canvas-src="img/나비.png" onerror="this.src='https://placehold.co/120x120/eee/ccc?text=나비.png';">
                 </div>
             </div>
         </aside>
@@ -94,9 +94,9 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
 
-    <!-- ⭐ 2. Firebase 초기화 (필수) - 님의 "새" 설정값으로 적용됨 ⭐ -->
+    <!-- ⭐ 2. Firebase 초기화 (필수) - "새" 설정값으로 적용됨 ⭐ -->
     <script>
-      // ❗️ 님께서 제공해주신 "새" 설정값입니다.
+      // ❗️ 님께서 제공해주신 "새" 설정값입니다. (controlling-82b19)
       const firebaseConfig = {
         apiKey: "AIzaSyBkCdi2LZvWoGGnv3dT8Kq76TOz42L4GDw",
         authDomain: "controlling-82b19.firebaseapp.com",
@@ -114,11 +114,12 @@
       
       // script3.js에서 사용할 'db' 객체 전역 변수로 선언
       const db = firebase.firestore();
-    </GCRIPT>
+    </script>
     <!-- ====================================================== -->
 
     <!-- 3. 기타 스크립트 로드 (반드시 Firebase 초기화 *이후*에 와야 함) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- 4. 님의 자바스크립트 파일 로드 -->
     <script src="script3.js"></script>
     
 </body>
