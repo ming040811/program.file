@@ -1,13 +1,15 @@
-<<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>나만의 동화 만들기 - 꾸미기 모드 (모바일)</title>
+    <!-- CSS 파일을 연결합니다. -->
     <link rel="stylesheet" href="style3.css">
 </head>
 <body>
 
+    <!-- 모바일 컨트롤러 UI (평소엔 숨겨져 있음) -->
     <div id="mobile-controller-ui" style="display: none; height: 100vh; width: 100vw; background: #f0f0f0; flex-direction: column; align-items: center; justify-content: space-around; padding: 20px; box-sizing: border-box;">
         
         <h2 id="controller-status" style="color:#4F99B2;">PC 연결 대기 중...</h2>
@@ -15,9 +17,7 @@
         <div id="selection-area" style="width: 100%; max-width: 350px; text-align: center;">
             <p style="margin: 5px 0 10px; font-weight: bold;">조작할 아이템 선택:</p>
             <div id="deco-selection" style="display: flex; justify-content: space-around; gap: 8px;">
-                <button class="ctrl-deco-btn" style="padding: 10px; border: 1px solid #ccc; background: white;">아이템 1</button>
-                <button class="ctrl-deco-btn" style="padding: 10px; border: 1px solid #ccc; background: white;">아이템 2</button>
-                <button class="ctrl-deco-btn" style="padding: 10px; border: 1px solid #ccc; background: white;">아이템 3</button>
+                <!-- JavaScript가 동적으로 버튼을 채웁니다. -->
             </div>
         </div>
         
@@ -35,6 +35,7 @@
         </div>
     </div>
     
+    <!-- PC 버전 메인 UI -->
     <header class="app-header">
         <button id="open-controller-btn" class="controller-button">📲 모바일 컨트롤러 연결 (QR)</button>
         <button class="export-button">영상 만들기</button>
@@ -43,16 +44,10 @@
     <div class="app-main">
         <aside class="asset-panel">
             <div class="asset-container">
-                <div id="backgrounds" class="asset-list">
-                    <img src="https://placehold.co/100x75/E0F2F1/1E3A8A?text=숲" class="asset-item" data-type="background" data-canvas-src="https://placehold.co/800x450/E0F2F1/1E3A8A?text=숲_배경">
-                    <img src="https://placehold.co/100x75/FEE2E2/991B1B?text=도시" class="asset-item" data-type="background" data-canvas-src="https://placehold.co/800x450/FEE2E2/991B1B?text=도시_배경">
-                    <img src="https://placehold.co/100x75/DBEAFE/1E40AF?text=우주" class="asset-item" data-type="background" data-canvas-src="https://placehold.co/800x450/DBEAFE/1E40AF?text=우주_배경">
-                </div>
-
                 <div id="decorations" class="asset-list">
+                    <!-- 아이템 경로 확인! -->
                     <img src="img/사각형.png" class="asset-item" data-type="decoration" data-canvas-src="img/사각형.png">
                     <img src="img/나비.png" class="asset-item" data-type="decoration" data-canvas-src="img/나비.png">
-                    <img src="https://placehold.co/100x100/BFDBFE/1E40AF?text=별" class="asset-item" data-type="decoration" data-canvas-src="https://placehold.co/100x100/BFDBFE/1E40AF?text=별.png">
                 </div>
             </div>
         </aside>
@@ -60,6 +55,7 @@
         <main class="main-content">
             <div class="canvas-wrapper">
                 <div id="canvas">
+                    <!-- 스냅 가이드 라인 -->
                     <div class="snap-guide vertical-guide"></div>
                     <div class="snap-guide horizontal-guide"></div>
                 </div>
@@ -67,17 +63,18 @@
             
             <div class="timeline">
                 <div class="timeline-strip">
-                    <div class="scene scene-thumbnail active" data-scene="1"></div><span class="arrow">→</span>
-                    <div class="scene scene-thumbnail" data-scene="2"></div><span class="arrow">→</span>
-                    <div class="scene scene-thumbnail" data-scene="3"></div><span class="arrow">→</span>
-                    <div class="scene scene-thumbnail" data-scene="4"></div><span class="arrow">→</span>
-                    <div class="scene scene-thumbnail" data-scene="5"></div><span class="arrow">→</span>
-                    <div class="scene scene-thumbnail" data-scene="6"></div>
+                    <div class="scene active" data-scene="1"></div><span class="arrow">→</span>
+                    <div class="scene" data-scene="2"></div><span class="arrow">→</span>
+                    <div class="scene" data-scene="3"></div><span class="arrow">→</span>
+                    <div class="scene" data-scene="4"></div><span class="arrow">→</span>
+                    <div class="scene" data-scene="5"></div><span class="arrow">→</span>
+                    <div class="scene" data-scene="6"></div>
                 </div>
             </div>
         </main>
     </div>
 
+    <!-- QR 코드 모달 -->
     <div id="qr-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center; flex-direction: column;">
         <h2 style="color: white; margin-bottom: 20px;">스마트폰으로 QR 코드를 스캔하세요.</h2>
         <div id="qrcode-container" style="
@@ -87,33 +84,41 @@
             padding: 15px; 
             border-radius: 5px;">
         </div>
-        <button id="close-qr-btn" onclick="document.getElementById('qr-modal').style.display = 'none';" 
+        <button onclick="document.getElementById('qr-modal').style.display = 'none';" 
                 style="margin-top: 20px; padding: 10px 20px; font-size: 16px; cursor: pointer;">닫기</button>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    
+    <!-- ====================================================== -->
+    <!-- ⭐ 1. Firebase SDK 추가 (필수) ⭐ -->
+    <!-- v8 SDK (script3.js 코드와 호환) -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
 
+    <!-- ⭐ 2. Firebase 초기화 (필수) - 님의 설정값으로 적용됨 ⭐ -->
     <script>
-        // 2. Firebase Config (고객 제공 값으로 대체되었습니다)
-        const firebaseConfig = {
-            apiKey: "AIzaSyDdnu-055WvBl0haybnPtgjH2FS4lcF8LQ",
-            authDomain: "controll-b5008.firebaseapp.com",
-            projectId: "controll-b5008",
-            storageBucket: "controll-b5008.firebasestorage.app",
-            messagingSenderId: "493484578933",
-            appId: "1:493484578933:web:025c4c75af43988969403c",
-            measurementId: "G-GFZD5SX3G2"
-        };
-        
-        // 3. Firebase 앱 초기화 및 Firestore 객체를 전역 변수(db)로 선언
-        // script3.js는 이 전역 변수 db에 접근하여 통신을 수행합니다.
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore(); 
-    </script>
+      // ❗️ 님께서 제공해주신 설정값입니다.
+      const firebaseConfig = {
+        apiKey: "AIzaSyDdnu-055WvBl0haybnPtgjH2FS4lcF8LQ",
+        authDomain: "controll-b5008.firebaseapp.com",
+        projectId: "controll-b5008",
+        storageBucket: "controll-b5008.firebasestorage.app",
+        messagingSenderId: "493484578933",
+        appId: "1:493484578933:web:025c4c75af43988969403c",
+        measurementId: "G-GFZD5SX3G2"
+      };
     
+      // Firebase 앱 초기화
+      if (!firebase.apps.length) {
+         firebase.initializeApp(firebaseConfig);
+      }
+      
+      // script3.js에서 사용할 'db' 객체 전역 변수로 선언
+      const db = firebase.firestore();
+    </script>
+    <!-- ====================================================== -->
+
+    <!-- 3. 기타 스크립트 로드 (반드시 Firebase 초기화 *이후*에 와야 함) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="script3.js"></script>
     
 </body>
