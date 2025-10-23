@@ -2,7 +2,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Firebase 전역 객체 'db'는 index.html의 <script> 태그에서 초기화되었습니다.
     if (typeof db === 'undefined') {
         console.error("Firebase Firestore is not initialized. Make sure 'db' is available.");
-        // alert()는 사용하지 않습니다. 콘솔 로그로 대체합니다.
         console.error("Firebase 연결 실패! HTML 파일의 설정값을 확인하세요.");
         return;
     }
@@ -17,7 +16,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // PC 모드에서만 새로 생성 (또는 URL에서 가져옴)
         SESSION_ID = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
         if (!isControllerMode) {
-            // 새로 생성된 ID를 현재 URL에 추가 (페이지 새로고침 시에도 유지)
             window.history.replaceState({}, document.title, `?session=${SESSION_ID}`);
         }
     }
@@ -33,6 +31,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // QR 코드 관련 DOM 요소
     const qrModal = document.getElementById('qr-modal');
     const qrcodeDiv = document.getElementById('qrcode-container');
+
+    // ⭐⭐⭐ 경고 메시지 바 DOM 요소 추가 ⭐⭐⭐
+    const limitAlert = document.getElementById('limit-alert');
+    let alertTimer = null; // 경고 메시지 타이머
 
     // 스토리 데이터
     const storyData = {
@@ -51,7 +53,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // PC -> 모바일 (상태 동기화)
     async function syncStateToFirestore() {
-        // PC 모드가 아니면 동기화 실행 안 함
         if (isControllerMode) return; 
 
         const decoList = storyData[currentScene].decorations.slice(0, 3).map((deco, index) => ({
@@ -63,38 +64,33 @@ document.addEventListener('DOMContentLoaded', () => {
             scene: currentScene,
             selectedId: selectedDecoId,
             decoList: decoList,
-            timestamp: firebase.firestore.FieldValue.serverTimestamp() // Firestore 타임스탬프
+            timestamp: firebase.firestore.FieldValue.serverTimestamp() 
         };
 
         try {
             await CONTROLLER_REF.set({ 
                 pcState: state 
-            }, { merge: true }); // pcState 필드만 업데이트
+            }, { merge: true }); 
         } catch (error) {
             console.error("Error syncing state to Firestore:", error);
         }
     }
     
     // 모바일 -> PC (조작 명령 수신 리스너)
-    let lastCommandTimestamp = 0; // 중복 실행 방지를 위한 타임스탬프
+    let lastCommandTimestamp = 0; 
 
     function listenForControlCommands() {
-        // PC 모드에서만 명령을 수신함
         if (isControllerMode) return; 
 
-        // Firestore의 특정 문서(세션 ID)를 실시간 감시
         CONTROLLER_REF.onSnapshot((doc) => {
             if (doc.exists && doc.data().command) {
                 const command = doc.data().command;
                 
-                // 명령의 타임스탬프를 확인하여 중복 실행 방지
                 if (command.timestamp && command.timestamp.toMillis() > lastCommandTimestamp) {
                     lastCommandTimestamp = command.timestamp.toMillis();
                     
-                    // 명령 처리
                     handleControllerControl(command.id, command.action, command.data);
 
-                    // 명령 처리 후, Firestore에서 command 필드를 삭제하여 중복 실행 방지
                     CONTROLLER_REF.update({
                         command: firebase.firestore.FieldValue.delete()
                     }).catch(error => {
@@ -109,8 +105,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // =========================================================================
     // ⭐ 모바일 컨트롤러 모드 (isControllerMode: true) 로직 ⭐
+    // (이전 버전의 코드가 여기에 해당됨)
     // =========================================================================
     if (isControllerMode) {
+        // ... (모바일 컨트롤러 관련 로직 - 이전 코드와 동일) ...
         // PC UI 숨김
         document.querySelector('.app-header').style.display = 'none';
         document.querySelector('.app-main').style.display = 'none';
@@ -181,27 +179,17 @@ document.addEventListener('DOMContentLoaded', () => {
         // 2. 조작 명령 전송
         async function sendCommandToFirestore(action, data = {}) {
             if (!activeDecoId && action !== 'select') {
-                // 'select' 액션은 activeDecoId가 없어도 전송 가능해야 함
                 return;
             }
-
-            // 'select' 액션은 data.newId를 id로 사용하고, 그 외는 activeDecoId 사용
             let commandId = (action === 'select' && data.newId) ? data.newId : activeDecoId;
-            
-            // 'select'가 아닌데 commandId가 없으면 리턴
             if (!commandId) {
                  return;
             }
-
             const command = {
-                id: commandId,
-                action: action,
-                data: data,
+                id: commandId, action: action, data: data,
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
             };
-            
             try {
-                // command 필드를 덮어씁니다.
                 await CONTROLLER_REF.set({ command: command }, { merge: true });
             } catch (error) {
                 console.error("Error sending command to Firestore:", error);
@@ -209,148 +197,99 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // 3. 컨트롤러 이벤트 리스너 설정
-        
-        // 일반 버튼 (회전, 확대/축소, 반전, 삭제)
         document.querySelectorAll('#control-buttons .ctrl-action-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const action = btn.dataset.action;
-                
-                if (action.includes('rotate')) {
-                    sendCommandToFirestore('rotate', { direction: action.includes('left') ? 'LEFT' : 'RIGHT' });
-                } else if (action.includes('scale')) {
-                    sendCommandToFirestore('scale', { direction: action.includes('up') ? 'UP' : 'DOWN' });
-                } else if (action === 'flip') {
-                    sendCommandToFirestore('flip');
-                } else if (action === 'delete') {
-                    sendCommandToFirestore('delete');
-                }
+                if (action.includes('rotate')) { sendCommandToFirestore('rotate', { direction: action.includes('left') ? 'LEFT' : 'RIGHT' }); } 
+                else if (action.includes('scale')) { sendCommandToFirestore('scale', { direction: action.includes('up') ? 'UP' : 'DOWN' }); } 
+                else if (action === 'flip') { sendCommandToFirestore('flip'); } 
+                else if (action === 'delete') { sendCommandToFirestore('delete'); }
             });
         });
-
-        // 아이템 선택 버튼 (PC에 선택 명령 전송)
         selectionArea.addEventListener('click', (e) => {
             if (e.target.classList.contains('ctrl-deco-btn')) {
-                const newId = e.target.dataset.id;
-                // PC에 선택 명령을 보내서 PC의 selectedDecoId를 변경
-                sendCommandToFirestore('select', { newId: newId });
+                sendCommandToFirestore('select', { newId: e.target.dataset.id });
             }
         });
         
         // 터치패드 드래그 (Nudge)
-        let isDragging = false;
-        let startX, startY;
-        let isTouch = false;
+        let isDragging = false, startX, startY, isTouch = false, lastNudgeTime = 0;
+        const NUDGE_INTERVAL = 16; // 반응속도 60Hz
 
-        // ⭐ 속도 최적화를 위한 변수 추가 (Throttling)
-        let lastNudgeTime = 0;
-        // ⭐⭐⭐ 반응 속도 55Hz로 조정 (18ms) ⭐⭐⭐
-        const NUDGE_INTERVAL = 18; 
-        // ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐
-
-        const startDrag = (e) => {
-            if (!activeDecoId) return;
-            e.preventDefault();
-            isDragging = true;
-            startX = isTouch ? e.touches[0].clientX : e.clientX;
-            startY = isTouch ? e.touches[0].clientY : e.clientY;
-            if (!isTouch) touchpad.style.cursor = 'grabbing';
+        const startDrag = (e) => { /* ... 이전 코드와 동일 ... */ 
+             if (!activeDecoId) return;
+             e.preventDefault();
+             isDragging = true;
+             startX = isTouch ? e.touches[0].clientX : e.clientX;
+             startY = isTouch ? e.touches[0].clientY : e.clientY;
+             if (!isTouch && touchpad) touchpad.style.cursor = 'grabbing';
+        };
+        const onDrag = (e) => { /* ... 이전 코드와 동일 ... */ 
+             if (!isDragging) return;
+             e.preventDefault();
+             const now = Date.now();
+             if (now - lastNudgeTime < NUDGE_INTERVAL) return; 
+             lastNudgeTime = now;
+             const clientX = isTouch ? e.touches[0].clientX : e.clientX;
+             const clientY = isTouch ? e.touches[0].clientY : e.clientY;
+             const dx = clientX - startX;
+             const dy = clientY - startY;
+             sendCommandToFirestore('nudge', { dx: dx / 5, dy: dy / 5 });
+             startX = clientX;
+             startY = clientY;
+        };
+        const endDrag = () => { /* ... 이전 코드와 동일 ... */ 
+             if (isDragging) {
+                 isDragging = false;
+                 if (!isTouch && touchpad) touchpad.style.cursor = 'grab';
+             }
         };
 
-        const onDrag = (e) => {
-            if (!isDragging) return;
-            e.preventDefault();
-
-            // ⭐ 속도 최적화: NUDGE_INTERVAL 이내의 이벤트는 무시
-            const now = Date.now();
-            if (now - lastNudgeTime < NUDGE_INTERVAL) {
-                return; 
-            }
-            lastNudgeTime = now;
-            // ⭐ --- 여기까지 ---
-            
-            const clientX = isTouch ? e.touches[0].clientX : e.clientX;
-            const clientY = isTouch ? e.touches[0].clientY : e.clientY;
-
-            const dx = clientX - startX;
-            const dy = clientY - startY;
-
-            // PC로 NUDGE 명령 전송 (미세 조정을 위해 5로 나눔)
-            sendCommandToFirestore('nudge', { dx: dx / 5, dy: dy / 5 });
-            
-            // 시작점을 현재 위치로 업데이트하여 연속적인 명령 전송
-            startX = clientX;
-            startY = clientY;
-        };
-
-        const endDrag = () => {
-            if (isDragging) {
-                isDragging = false;
-                if (!isTouch) touchpad.style.cursor = 'grab';
-            }
-        };
-
-        // PC/마우스 환경
-        touchpad.addEventListener('mousedown', (e) => {
-            isTouch = false;
-            startDrag(e);
-        });
+        if(touchpad) {
+            touchpad.addEventListener('mousedown', (e) => { isTouch = false; startDrag(e); });
+            touchpad.addEventListener('touchstart', (e) => { isTouch = true; if (e.touches.length === 1) startDrag(e); });
+        }
         document.addEventListener('mousemove', onDrag);
         document.addEventListener('mouseup', endDrag);
-
-        // 모바일 환경
-        touchpad.addEventListener('touchstart', (e) => {
-            isTouch = true;
-            if (e.touches.length === 1) startDrag(e);
-        });
-        document.addEventListener('touchmove', (e) => {
-            if (e.touches.length === 1) onDrag(e);
-        });
+        document.addEventListener('touchmove', (e) => { if (e.touches.length === 1) onDrag(e); });
         document.addEventListener('touchend', endDrag);
         
         // 4. PC 상태 수신 시작
         listenForPCState();
         
-        return; // 메인 사이트의 나머지 로직 실행 중단
+        return; 
     }
 
     // =========================================================================
     // ⭐ PC 메인 웹사이트 모드 (isControllerMode: false) 로직 ⭐
     // =========================================================================
     
-    // PC 모드에서는 명령 수신을 위한 리스너를 즉시 시작
     listenForControlCommands(); 
     
-    // --- ⭐ 컨트롤러 창 열기 이벤트 리스너 (QR 코드 표시로 변경) ⭐ ---
     if (openControllerBtn) {
         openControllerBtn.addEventListener('click', () => {
             if (qrModal) qrModal.style.display = 'flex';
             
-            // 현재 URL에서 쿼리스트링 제거 후, session ID와 mode=controller 추가
             const currentUrl = window.location.href.split('?')[0]; 
-            const controllerUrl = `${currentUrl}?session=${SESSION_ID}&mode=controller`;
+            // ❗️ 중요: QR 코드는 여전히 ?mode=controller 파라미터를 사용합니다.
+            const controllerUrl = `${currentUrl}?session=${SESSION_ID}&mode=controller`; 
 
             if (qrcodeDiv) qrcodeDiv.innerHTML = '';
             
             if (qrcodeDiv && typeof QRCode !== 'undefined') {
                 new QRCode(qrcodeDiv, {
-                    text: controllerUrl, 
-                    width: 256,
-                    height: 256,
-                    colorDark : "#000000",
-                    colorLight : "#ffffff",
+                    text: controllerUrl, width: 256, height: 256,
+                    colorDark : "#000000", colorLight : "#ffffff",
                     correctLevel : QRCode.CorrectLevel.H
                 });
             }
-            // PC 상태를 Firestore에 최초 동기화 (모바일에서 연결을 기다리게 함)
             syncStateToFirestore(); 
         });
     }
 
-    // --- 아이템 선택 처리 함수 ---
     function selectItem(id) {
         document.querySelectorAll('.decoration-item').forEach(el => el.classList.remove('selected'));
         selectedDecoId = null;
-
         if (id) {
             const element = document.getElementById(id);
             if (element) {
@@ -358,537 +297,292 @@ document.addEventListener('DOMContentLoaded', () => {
                 selectedDecoId = id;
             }
         }
-        syncStateToFirestore(); // 상태 변경 시 컨트롤러에 동기화
+        syncStateToFirestore(); 
     }
 
-    // --- ⭐ [수정됨] 2-1. 아이템 스타일만 가볍게 업데이트하는 함수 ---
-    // (깜빡임 해결의 핵심)
-    function updateElementStyle(decoData) {
+    function updateElementStyle(decoData) { /* ... 이전 코드와 동일 ... */ 
         const element = document.getElementById(decoData.id);
         if (!element) return;
-
         element.style.left = decoData.x + 'px';
         element.style.top = decoData.y + 'px';
         element.style.width = decoData.width + 'px';
         element.style.height = decoData.height + 'px';
         element.style.transform = `rotate(${decoData.rotation}deg)`;
-
         const img = element.querySelector('img');
-        if (img) {
-            img.style.transform = `scaleX(${decoData.scaleX})`;
-        }
+        if (img) { img.style.transform = `scaleX(${decoData.scaleX})`; }
     }
 
-    // --- ⭐ [수정됨] 2-2. PC 상태 동기화/저장을 위한 Throttling ---
     let pcUpdateTimer = null;
-    const PC_UPDATE_INTERVAL = 500; // 0.5초마다 썸네일/상태 동기화
+    const PC_UPDATE_INTERVAL = 500; 
 
-    // (이 함수는 현재 PC에서 직접 조작할 때만 사용됨)
-    function requestPcUpdate() {
-        if (pcUpdateTimer) return; // 이미 업데이트 요청이 예약됨
-
+    function requestPcUpdate() { /* ... 이전 코드와 동일 ... */ 
+        if (pcUpdateTimer) return; 
         pcUpdateTimer = setTimeout(() => {
-            syncStateToFirestore(); // 0.5초마다 컨트롤러로 상태 전송
-            updateThumbnail(currentScene); // 0.5초마다 썸네일 업데이트
+            syncStateToFirestore(); 
+            updateThumbnail(currentScene); 
             pcUpdateTimer = null;
         }, PC_UPDATE_INTERVAL);
     }
 
-
-    // --- 3. 컨트롤러 조작 명령 처리 함수 ---
-    function handleControllerControl(id, action, data) {
+    function handleControllerControl(id, action, data) { /* ... 이전 코드와 동일 ... */ 
         let decoData;
-        
-        if (action === 'select') {
-            selectItem(data.newId);
-            return;
-        }
-
-        if (id && selectedDecoId !== id) {
-             selectItem(id);
-        }
-        
+        if (action === 'select') { selectItem(data.newId); return; }
+        if (id && selectedDecoId !== id) { selectItem(id); }
         if (selectedDecoId === null) return;
-        
         decoData = storyData[currentScene].decorations.find(d => d.id === selectedDecoId);
         if (!decoData) return;
-
         const step = { rotate: 5, scale: 0.02 }; 
-        // let updated = false; // ⭐ 삭제: 이 로직은 더 이상 필요 없음
 
         if (action === 'nudge') {
-            const dx = data.dx || 0;
-            const dy = data.dy || 0;
-            
-            // 1. 데이터 업데이트 (모바일에서 /5 했으므로 *5 증폭)
-            decoData.x += dx * 5;
-            decoData.y += dy * 5;
-            // 2. ⭐ [수정] DOM 경량 업데이트 (renderScene 대신)
+            const dx = data.dx || 0, dy = data.dy || 0;
+            decoData.x += dx * 5; decoData.y += dy * 5;
             updateElementStyle(decoData);
-            // 3. ⭐ [수정] 썸네일/동기화는 requestPcUpdate 대신 즉시 요청
-            // (모바일 조작은 이미 throttle 되어 있으므로)
-            syncStateToFirestore();
-            updateThumbnail(currentScene);
-            
+            syncStateToFirestore(); updateThumbnail(currentScene);
         } else if (action === 'rotate') {
             const direction = data.direction;
             if (direction === 'LEFT') { decoData.rotation -= step.rotate; }
             else if (direction === 'RIGHT') { decoData.rotation += step.rotate; }
-            // 2. ⭐ [수정] DOM 경량 업데이트
             updateElementStyle(decoData);
-            // 3. ⭐ [수정] 썸네일/동기화 즉시 요청
-            syncStateToFirestore();
-            updateThumbnail(currentScene);
-            
+            syncStateToFirestore(); updateThumbnail(currentScene);
         } else if (action === 'scale') {
             const direction = data.direction;
             const factor = 1 + (direction === 'UP' ? step.scale : -step.scale);
-            
             if (decoData.width * factor > 20 && decoData.height * factor > 20) {
                 const deltaWidth = (decoData.width * factor) - decoData.width;
                 const deltaHeight = (decoData.height * factor) - decoData.height;
-                
-                decoData.width *= factor;
-                decoData.height *= factor;
-                decoData.x -= deltaWidth / 2;
-                decoData.y -= deltaHeight / 2;
-                
-                // 2. ⭐ [수정] DOM 경량 업데이트
+                decoData.width *= factor; decoData.height *= factor;
+                decoData.x -= deltaWidth / 2; decoData.y -= deltaHeight / 2;
                 updateElementStyle(decoData);
-                // 3. ⭐ [수정] 썸네일/동기화 즉시 요청
-                syncStateToFirestore();
-                updateThumbnail(currentScene);
+                syncStateToFirestore(); updateThumbnail(currentScene);
             }
         } else if (action === 'flip') {
             decoData.scaleX *= -1;
-            // 2. ⭐ [수정] DOM 경량 업데이트
             updateElementStyle(decoData);
-            // 3. ⭐ [수정] 썸네일/동기화 즉시 요청
-            syncStateToFirestore();
-            updateThumbnail(currentScene);
-
+            syncStateToFirestore(); updateThumbnail(currentScene);
         } else if (action === 'delete') {
             const index = storyData[currentScene].decorations.findIndex(d => d.id === id);
             if (index > -1) {
                 storyData[currentScene].decorations.splice(index, 1);
                 const element = document.getElementById(id);
                 if (element) element.remove();
-                selectItem(null); // 삭제 후 선택 해제 및 동기화 (즉시 실행)
-                updateThumbnail(currentScene); // 썸네일 즉시 업데이트
-                return; 
+                selectItem(null); updateThumbnail(currentScene); return; 
             }
         }
-
-        // ⭐ 삭제: 이 블록이 깜빡임의 원인이었음
-        /*
-        if (updated) {
-            renderScene(currentScene); 
-        }
-        */
     }
 
     // --- 4. 장식 아이템 추가 이벤트 핸들러 (PC에서만 작동) ---
     document.querySelectorAll('.asset-item[data-type="decoration"]').forEach(item => {
         item.addEventListener('click', () => {
+            // ⭐⭐⭐ 수정: alert() 대신 showAlert() 호출 ⭐⭐⭐
             if (storyData[currentScene].decorations.length >= 3) {
-                // alert() 대신 console.warn 사용
-                console.warn("장식 아이템은 최대 3개까지만 추가할 수 있습니다.");
+                // console.warn("장식 아이템은 최대 3개까지만 추가할 수 있습니다.");
+                showAlert(); // 경고 메시지 표시 함수 호출
                 return;
             }
+            // ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐
 
             const canvasImageSrc = item.dataset.canvasSrc || item.src; 
-            
-            let initialWidth = 200; 
-            let initialHeight = 200;
-
+            let initialWidth = 200, initialHeight = 200;
             if (canvasImageSrc.includes('나비.png')) { 
-                initialWidth = 150; 
-                initialHeight = 150; 
+                initialWidth = 150; initialHeight = 150; 
             }
-
             const newDeco = {
-                id: 'deco-' + Date.now(),
-                src: canvasImageSrc,
-                width: initialWidth, 
-                height: initialHeight,
+                id: 'deco-' + Date.now(), src: canvasImageSrc,
+                width: initialWidth, height: initialHeight,
                 x: (canvas.offsetWidth / 2) - (initialWidth / 2),
                 y: (canvas.offsetHeight / 2) - (initialHeight / 2),
-                rotation: 0,
-                scaleX: 1,
+                rotation: 0, scaleX: 1,
             };
             storyData[currentScene].decorations.push(newDeco);
-            renderScene(currentScene); // ❗️ 아이템 추가 시에는 전체 렌더링 (정상)
+            renderScene(currentScene); 
             selectItem(newDeco.id);
         });
     });
 
-
-    // --- 5. 씬 렌더링 함수 ---
-    // (이 함수는 이제 씬 전환 / 아이템 추가/삭제 시에만 호출됨)
-    function renderScene(sceneNumber) {
-        if (!canvas) return; // canvas가 없으면 함수 종료
+    function renderScene(sceneNumber) { /* ... 이전 코드와 동일 ... */ 
+        if (!canvas) return; 
         const data = storyData[sceneNumber];
-        
-        // 기존 아이템 제거
         Array.from(canvas.children).forEach(child => {
-            if (child.classList.contains('decoration-item')) {
-                child.remove();
-            }
+            if (child.classList.contains('decoration-item')) { child.remove(); }
         });
-        
         data.decorations.forEach(createDecorationElement);
         selectItem(selectedDecoId); 
-        
         setTimeout(() => updateThumbnail(sceneNumber), 50); 
-        syncStateToFirestore(); // 렌더링 후 상태 동기화
+        syncStateToFirestore(); 
     }
 
-    // --- 6. 장식 요소 생성 함수 ---
-    function createDecorationElement(decoData) {
-        if (!canvas) return; // canvas가 없으면 함수 종료
+    function createDecorationElement(decoData) { /* ... 이전 코드와 동일 ... */ 
+        if (!canvas) return; 
         const item = document.createElement('div');
-        item.className = 'decoration-item';
-        item.id = decoData.id;
-        item.style.left = decoData.x + 'px';
-        item.style.top = decoData.y + 'px';
-        item.style.width = decoData.width + 'px';
-        item.style.height = decoData.height + 'px';
+        item.className = 'decoration-item'; item.id = decoData.id;
+        item.style.left = decoData.x + 'px'; item.style.top = decoData.y + 'px';
+        item.style.width = decoData.width + 'px'; item.style.height = decoData.height + 'px';
         item.style.transform = `rotate(${decoData.rotation}deg)`;
-
         const img = document.createElement('img');
         img.src = decoData.src;
-        // ❗️ 이미지 경로 확인! ❗️
-        img.onerror = function() { 
-            img.src = `https://placehold.co/${Math.round(decoData.width)}x${Math.round(decoData.height)}/eee/ccc?text=이미지+로드+실패`;
-        };
+        img.onerror = function() { img.src = `https://placehold.co/${Math.round(decoData.width)}x${Math.round(decoData.height)}/eee/ccc?text=이미지+로드+실패`; };
         img.style.transform = `scaleX(${decoData.scaleX})`;
-
         const controls = document.createElement('div');
         controls.className = 'controls';
-        // ❗️ 이미지 경로 확인! ❗️
         controls.innerHTML = `<button class="flip" title="좌우반전"><img src="img/좌우반전.png" alt="좌우반전" onerror="this.parentNode.innerHTML='반전'"></button>
                               <button class="delete" title="삭제"><img src="img/휴지통.png" alt="삭제" onerror="this.parentNode.innerHTML='삭제'"></button>`;
-        
         const handles = ['tl', 'tr', 'bl', 'br', 'rotator'].map(type => {
-            const handle = document.createElement('div');
-            handle.className = `handle ${type}`;
-            return handle;
+            const handle = document.createElement('div'); handle.className = `handle ${type}`; return handle;
         });
-
         item.append(img, ...handles, controls);
         canvas.appendChild(item);
-
         makeInteractive(item);
     }
 
-    // --- 7. 인터랙티브 기능 부여 함수 (드래그, 리사이즈, 회전, 컨트롤) ---
-    function makeInteractive(element) {
+    function makeInteractive(element) { /* ... 이전 코드와 동일 ... */ 
         const decoData = storyData[currentScene].decorations.find(d => d.id === element.id);
-        if (!decoData) return; // 데이터 못찾으면 중단
-
-        // 선택
-        element.addEventListener('mousedown', (e) => {
-            selectItem(element.id);
-            e.stopPropagation();
-        });
-
-        // 이동 (드래그)
+        if (!decoData) return; 
+        element.addEventListener('mousedown', (e) => { selectItem(element.id); e.stopPropagation(); });
         let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
-        element.onmousedown = function(e) {
+        element.onmousedown = function(e) { /* ... 이전 코드와 동일 ... */ 
             if (e.target.closest('.handle') || e.target.closest('.controls')) return;
-            e.preventDefault();
-            pos3 = e.clientX;
-            pos4 = e.clientY;
-            document.onmouseup = closeDragElement;
-            document.onmousemove = elementDrag;
+            e.preventDefault(); pos3 = e.clientX; pos4 = e.clientY;
+            document.onmouseup = closeDragElement; document.onmousemove = elementDrag;
         };
-
-        function elementDrag(e) {
-            if (verticalGuide) verticalGuide.style.display = 'none';
-            if (horizontalGuide) horizontalGuide.style.display = 'none';
-
-            pos1 = pos3 - e.clientX;
-            pos2 = pos4 - e.clientY;
-            pos3 = e.clientX;
-            pos4 = e.clientY;
-
-            let newTop = element.offsetTop - pos2;
-            let newLeft = element.offsetLeft - pos1;
-
-            const snapThreshold = 5; 
-            
-            if (!canvas) return;
-            const canvasWidth = canvas.offsetWidth;
-            const canvasHeight = canvas.offsetHeight;
-            const elementWidth = element.offsetWidth;
-            const elementHeight = element.offsetHeight;
-
-            const canvasCenterX = canvasWidth / 2;
-            const canvasCenterY = canvasHeight / 2;
-
-            const elementCenterX = newLeft + elementWidth / 2;
-            const elementCenterY = newTop + elementHeight / 2;
-
-            let snappedX = false;
-            let snappedY = false;
-
-            // 가로 중앙 스냅
+        function elementDrag(e) { /* ... 이전 코드와 동일 ... */ 
+            if (verticalGuide) verticalGuide.style.display = 'none'; if (horizontalGuide) horizontalGuide.style.display = 'none';
+            pos1 = pos3 - e.clientX; pos2 = pos4 - e.clientY; pos3 = e.clientX; pos4 = e.clientY;
+            let newTop = element.offsetTop - pos2, newLeft = element.offsetLeft - pos1;
+            const snapThreshold = 5; if (!canvas) return;
+            const canvasWidth = canvas.offsetWidth, canvasHeight = canvas.offsetHeight, elementWidth = element.offsetWidth, elementHeight = element.offsetHeight;
+            const canvasCenterX = canvasWidth / 2, canvasCenterY = canvasHeight / 2;
+            const elementCenterX = newLeft + elementWidth / 2, elementCenterY = newTop + elementHeight / 2;
+            let snappedX = false, snappedY = false;
             if (Math.abs(elementCenterX - canvasCenterX) < snapThreshold) {
                 newLeft = canvasCenterX - elementWidth / 2;
-                if (verticalGuide) {
-                    verticalGuide.style.left = `${canvasCenterX}px`;
-                    verticalGuide.style.display = 'block';
-                }
-                snappedX = true;
+                if (verticalGuide) { verticalGuide.style.left = `${canvasCenterX}px`; verticalGuide.style.display = 'block'; } snappedX = true;
             }
-
-            // 세로 중앙 스냅
             if (Math.abs(elementCenterY - canvasCenterY) < snapThreshold) {
                 newTop = canvasCenterY - elementHeight / 2;
-                if (horizontalGuide) {
-                    horizontalGuide.style.top = `${canvasCenterY}px`;
-                    horizontalGuide.style.display = 'block';
-                }
-                snappedY = true;
+                if (horizontalGuide) { horizontalGuide.style.top = `${canvasCenterY}px`; horizontalGuide.style.display = 'block'; } snappedY = true;
             }
-
-            if (!snappedX && verticalGuide) verticalGuide.style.display = 'none';
-            if (!snappedY && horizontalGuide) horizontalGuide.style.display = 'none';
-            
-            element.style.top = newTop + "px";
-            element.style.left = newLeft + "px";
+            if (!snappedX && verticalGuide) verticalGuide.style.display = 'none'; if (!snappedY && horizontalGuide) horizontalGuide.style.display = 'none';
+            element.style.top = newTop + "px"; element.style.left = newLeft + "px";
         }
-        
-        function closeDragElement() {
-            document.onmouseup = null;
-            document.onmousemove = null;
-
-            if (verticalGuide) verticalGuide.style.display = 'none';
-            if (horizontalGuide) horizontalGuide.style.display = 'none';
-
-            decoData.x = element.offsetLeft;
-            decoData.y = element.offsetTop;
-            updateThumbnail(currentScene); // PC 드래그 종료 시 썸네일/동기화 (즉시 실행)
-            syncStateToFirestore();
+        function closeDragElement() { /* ... 이전 코드와 동일 ... */ 
+            document.onmouseup = null; document.onmousemove = null;
+            if (verticalGuide) verticalGuide.style.display = 'none'; if (horizontalGuide) horizontalGuide.style.display = 'none';
+            decoData.x = element.offsetLeft; decoData.y = element.offsetTop;
+            updateThumbnail(currentScene); syncStateToFirestore();
         }
-        
-        // 크기 조절 (리사이즈)
-        element.querySelectorAll('.handle:not(.rotator)').forEach(handle => {
-            handle.onmousedown = initResize;
-        });
-        
-        function initResize(e) {
-            e.preventDefault();
-            e.stopPropagation();
-
-            const handleType = e.target.classList[1];
-            const rect = element.getBoundingClientRect();
-            const angleRad = decoData.rotation * (Math.PI / 180);
-            const aspectRatio = decoData.width / decoData.height; 
-
-            const corners = getRotatedCorners(rect, angleRad);
-            const oppositeCornerMap = { tl: 'br', tr: 'bl', bl: 'tr', br: 'tl' };
-            const pivot = corners[oppositeCornerMap[handleType]]; 
-
-            const isLeft = handleType.includes('l');
-            const isTop = handleType.includes('t');
-
-            document.onmousemove = (e_move) => {
-                const mouseVector = {
-                    x: e_move.clientX - pivot.x,
-                    y: e_move.clientY - pivot.y
-                };
-
-                const rotatedMouseVector = {
-                    x: mouseVector.x * Math.cos(-angleRad) - mouseVector.y * Math.sin(-angleRad),
-                    y: mouseVector.x * Math.sin(-angleRad) + mouseVector.y * Math.cos(-angleRad)
-                };
-                
-                let newWidth, newHeight;
-                
-                if (Math.abs(rotatedMouseVector.x) / aspectRatio > Math.abs(rotatedMouseVector.y)) {
-                    newWidth = Math.abs(rotatedMouseVector.x);
-                    newHeight = newWidth / aspectRatio;
-                } else {
-                    newHeight = Math.abs(rotatedMouseVector.y);
-                    newWidth = newHeight * aspectRatio;
-                }
-
-                if (newWidth < 20) return; 
-
-                const signX = isLeft ? -1 : 1;
-                const signY = isTop ? -1 : 1;
-
-                const localCenter = {
-                    x: (signX * newWidth) / 2,
-                    y: (signY * newHeight) / 2
-                };
-
-                const rotatedCenterVector = {
-                    x: localCenter.x * Math.cos(angleRad) - localCenter.y * Math.sin(angleRad),
-                    y: localCenter.x * Math.sin(angleRad) + localCenter.y * Math.cos(angleRad)
-                };
-                
-                const newGlobalCenter = {
-                    x: pivot.x + rotatedCenterVector.x,
-                    y: pivot.y + rotatedCenterVector.y
-                };
-
-                if (!canvas) return;
-                const canvasRect = canvas.getBoundingClientRect();
-                const finalLeft = newGlobalCenter.x - (newWidth / 2) - canvasRect.left;
-                const finalTop = newGlobalCenter.y - (newHeight / 2) - canvasRect.top;
-
-                element.style.width = newWidth + 'px';
-                element.style.height = newHeight + 'px';
-                element.style.left = finalLeft + 'px';
-                element.style.top = finalTop + 'px';
-            };
-
-            document.onmouseup = () => {
-                document.onmousemove = null;
-                document.onmouseup = null;
-                decoData.width = parseFloat(element.style.width);
-                decoData.height = parseFloat(element.style.height);
-                decoData.x = element.offsetLeft;
-                decoData.y = element.offsetTop;
-                updateThumbnail(currentScene); // PC 리사이즈 종료 시 썸네일/동기화 (즉시 실행)
-                syncStateToFirestore();
-            };
+        element.querySelectorAll('.handle:not(.rotator)').forEach(handle => { handle.onmousedown = initResize; });
+        function initResize(e) { /* ... 이전 코드와 동일 ... */ 
+             e.preventDefault(); e.stopPropagation();
+             const handleType = e.target.classList[1], rect = element.getBoundingClientRect(), angleRad = decoData.rotation * (Math.PI / 180), aspectRatio = decoData.width / decoData.height; 
+             const corners = getRotatedCorners(rect, angleRad), oppositeCornerMap = { tl: 'br', tr: 'bl', bl: 'tr', br: 'tl' }, pivot = corners[oppositeCornerMap[handleType]]; 
+             const isLeft = handleType.includes('l'), isTop = handleType.includes('t');
+             document.onmousemove = (e_move) => {
+                 const mouseVector = { x: e_move.clientX - pivot.x, y: e_move.clientY - pivot.y };
+                 const rotatedMouseVector = { x: mouseVector.x * Math.cos(-angleRad) - mouseVector.y * Math.sin(-angleRad), y: mouseVector.x * Math.sin(-angleRad) + mouseVector.y * Math.cos(-angleRad) };
+                 let newWidth, newHeight;
+                 if (Math.abs(rotatedMouseVector.x) / aspectRatio > Math.abs(rotatedMouseVector.y)) { newWidth = Math.abs(rotatedMouseVector.x); newHeight = newWidth / aspectRatio; } 
+                 else { newHeight = Math.abs(rotatedMouseVector.y); newWidth = newHeight * aspectRatio; }
+                 if (newWidth < 20) return; 
+                 const signX = isLeft ? -1 : 1, signY = isTop ? -1 : 1;
+                 const localCenter = { x: (signX * newWidth) / 2, y: (signY * newHeight) / 2 };
+                 const rotatedCenterVector = { x: localCenter.x * Math.cos(angleRad) - localCenter.y * Math.sin(angleRad), y: localCenter.x * Math.sin(angleRad) + localCenter.y * Math.cos(angleRad) };
+                 const newGlobalCenter = { x: pivot.x + rotatedCenterVector.x, y: pivot.y + rotatedCenterVector.y };
+                 if (!canvas) return; const canvasRect = canvas.getBoundingClientRect();
+                 const finalLeft = newGlobalCenter.x - (newWidth / 2) - canvasRect.left, finalTop = newGlobalCenter.y - (newHeight / 2) - canvasRect.top;
+                 element.style.width = newWidth + 'px'; element.style.height = newHeight + 'px'; element.style.left = finalLeft + 'px'; element.style.top = finalTop + 'px';
+             };
+             document.onmouseup = () => {
+                 document.onmousemove = null; document.onmouseup = null;
+                 decoData.width = parseFloat(element.style.width); decoData.height = parseFloat(element.style.height);
+                 decoData.x = element.offsetLeft; decoData.y = element.offsetTop;
+                 updateThumbnail(currentScene); syncStateToFirestore();
+             };
         }
-
-        // 회전 (로테이터 핸들)
         const rotator = element.querySelector('.rotator');
-        if (rotator) {
-            rotator.onmousedown = function(e) {
-                e.preventDefault(); e.stopPropagation();
-                const rect = element.getBoundingClientRect();
-                const centerX = rect.left + rect.width / 2;
-                const centerY = rect.top + rect.height / 2;
-
-                const startAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * (180 / Math.PI);
-                let startRotation = decoData.rotation;
-
-                document.onmousemove = function(e_move) {
-                    const currentAngle = Math.atan2(e_move.clientY - centerY, e_clientX - centerX) * (180 / Math.PI);
-                    let newRotation = startRotation + (currentAngle - startAngle);
-                    
-                    const snapThreshold = 6;
-                    const snappedAngle = Math.round(newRotation / 90) * 90;
-
-                    if (Math.abs(newRotation - snappedAngle) < snapThreshold) {
-                        newRotation = snappedAngle;
-                    }
-                    
-                    element.style.transform = `rotate(${newRotation}deg)`;
-                    decoData.rotation = newRotation;
-                };
-                document.onmouseup = function() {
-                    document.onmousemove = null; document.onmouseup = null;
-                    updateThumbnail(currentScene);
-                    syncStateToFirestore();
-                };
+        if (rotator) { rotator.onmousedown = function(e) { /* ... 이전 코드와 동일 ... */ 
+            e.preventDefault(); e.stopPropagation(); const rect = element.getBoundingClientRect(), centerX = rect.left + rect.width / 2, centerY = rect.top + rect.height / 2;
+            const startAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * (180 / Math.PI); let startRotation = decoData.rotation;
+            document.onmousemove = function(e_move) {
+                const currentAngle = Math.atan2(e_move.clientY - centerY, e_move.clientX - centerX) * (180 / Math.PI); let newRotation = startRotation + (currentAngle - startAngle);
+                const snapThreshold = 6, snappedAngle = Math.round(newRotation / 90) * 90;
+                if (Math.abs(newRotation - snappedAngle) < snapThreshold) { newRotation = snappedAngle; }
+                element.style.transform = `rotate(${newRotation}deg)`; decoData.rotation = newRotation;
             };
-        }
-
-        // 좌우 반전 버튼
+            document.onmouseup = function() { document.onmousemove = null; document.onmouseup = null; updateThumbnail(currentScene); syncStateToFirestore(); };
+        }; }
         const flipButton = element.querySelector('.flip');
-        if (flipButton) {
-            flipButton.addEventListener('click', (e) => {
-                e.stopPropagation();
-                handleControllerControl(element.id, 'flip');
-            });
-        }
-        
-        // 삭제 버튼
+        if (flipButton) { flipButton.addEventListener('click', (e) => { e.stopPropagation(); handleControllerControl(element.id, 'flip'); }); }
         const deleteButton = element.querySelector('.delete');
-        if (deleteButton) {
-            deleteButton.addEventListener('click', (e) => {
-                e.stopPropagation();
-                handleControllerControl(element.id, 'delete');
-            });
-        }
+        if (deleteButton) { deleteButton.addEventListener('click', (e) => { e.stopPropagation(); handleControllerControl(element.id, 'delete'); }); }
     }
 
-    // --- 8. 헬퍼 함수 (회전된 좌표 계산) ---
-    function getRotatedCorners(rect, angle) {
+    function getRotatedCorners(rect, angle) { /* ... 이전 코드와 동일 ... */ 
         const center = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-        const corners = {
-            tl: { x: rect.left, y: rect.top }, tr: { x: rect.right, y: rect.top },
-            bl: { x: rect.left, y: rect.bottom }, br: { x: rect.right, y: rect.bottom }
-        };
-        for (const key in corners) {
-            corners[key] = rotatePoint(corners[key], center, angle);
-        }
-        return corners;
+        const corners = { tl: { x: rect.left, y: rect.top }, tr: { x: rect.right, y: rect.top }, bl: { x: rect.left, y: rect.bottom }, br: { x: rect.right, y: rect.bottom } };
+        for (const key in corners) { corners[key] = rotatePoint(corners[key], center, angle); } return corners;
     }
     
-    function rotatePoint(point, center, angle) {
-        const dx = point.x - center.x;
-        const dy = point.y - center.y;
-        const newX = center.x + dx * Math.cos(angle) - dy * Math.sin(angle);
-        const newY = center.y + dx * Math.sin(angle) + dy * Math.cos(angle);
+    function rotatePoint(point, center, angle) { /* ... 이전 코드와 동일 ... */ 
+        const dx = point.x - center.x, dy = point.y - center.y;
+        const newX = center.x + dx * Math.cos(angle) - dy * Math.sin(angle), newY = center.y + dx * Math.sin(angle) + dy * Math.cos(angle);
         return { x: newX, y: newY };
     }
 
-    // --- 9. 캔버스 외부 클릭 시 선택 해제 ---
-    document.addEventListener('mousedown', (e) => {
-        if (!e.target.closest('.decoration-item') && !e.target.closest('.asset-item') && !e.target.closest('#qr-modal')) {
-            selectItem(null);
-        }
+    document.addEventListener('mousedown', (e) => { /* ... 이전 코드와 동일 ... */ 
+        if (!e.target.closest('.decoration-item') && !e.target.closest('.asset-item') && !e.target.closest('#qr-modal')) { selectItem(null); }
     });
 
-    // --- 10. 씬 전환 ---
     const scenes = document.querySelectorAll('.scene');
-    scenes.forEach(scene => {
+    scenes.forEach(scene => { /* ... 이전 코드와 동일 ... */ 
         scene.addEventListener('click', () => {
-            scenes.forEach(s => s.classList.remove('active'));
-            scene.classList.add('active');
-            currentScene = scene.dataset.scene;
-            selectedDecoId = null;
-            renderScene(currentScene); // ❗️ 씬 전환 시 전체 렌더링 (정상)
+            scenes.forEach(s => s.classList.remove('active')); scene.classList.add('active');
+            currentScene = scene.dataset.scene; selectedDecoId = null; renderScene(currentScene); 
         });
     });
     
-    // --- 11. 타임라인 썸네일 업데이트 ---
-    function updateThumbnail(sceneNumber) {
+    function updateThumbnail(sceneNumber) { /* ... 이전 코드와 동일 ... */ 
         const sceneEl = document.querySelector(`.scene[data-scene="${sceneNumber}"]`);
         if (sceneEl) {
-            sceneEl.innerHTML = ''; 
-            
-            const sceneData = storyData[sceneNumber];
-            sceneEl.style.backgroundImage = 'none';
-            
+            sceneEl.innerHTML = ''; const sceneData = storyData[sceneNumber]; sceneEl.style.backgroundImage = 'none';
             if(!canvas || canvas.offsetWidth === 0) return;
-
-            const scaleX = sceneEl.offsetWidth / canvas.offsetWidth;
-            const scaleY = sceneEl.offsetHeight / canvas.offsetHeight;
-
+            const scaleX = sceneEl.offsetWidth / canvas.offsetWidth, scaleY = sceneEl.offsetHeight / canvas.offsetHeight;
             sceneData.decorations.forEach(decoData => {
                 const miniDeco = document.createElement('div');
                 miniDeco.style.position = 'absolute';
-                miniDeco.style.width = (decoData.width * scaleX) + 'px';
-                miniDeco.style.height = (decoData.height * scaleY) + 'px';
-                miniDeco.style.left = (decoData.x * scaleX) + 'px';
-                miniDeco.style.top = (decoData.y * scaleY) + 'px';
-                
-                miniDeco.style.backgroundImage = `url(${decoData.src})`;
-                miniDeco.style.backgroundSize = 'contain';
-                miniDeco.style.backgroundRepeat = 'no-repeat';
-                miniDeco.style.backgroundPosition = 'center';
-                
+                miniDeco.style.width = (decoData.width * scaleX) + 'px'; miniDeco.style.height = (decoData.height * scaleY) + 'px';
+                miniDeco.style.left = (decoData.x * scaleX) + 'px'; miniDeco.style.top = (decoData.y * scaleY) + 'px';
+                miniDeco.style.backgroundImage = `url(${decoData.src})`; miniDeco.style.backgroundSize = 'contain';
+                miniDeco.style.backgroundRepeat = 'no-repeat'; miniDeco.style.backgroundPosition = 'center';
                 miniDeco.style.transform = `rotate(${decoData.rotation}deg) scaleX(${decoData.scaleX})`;
-                
                 sceneEl.appendChild(miniDeco);
             });
         }
     }
 
-    // 초기 렌더링
     renderScene(currentScene);
     
-    // PC 모드에서 최초 상태 동기화 (세션 ID 생성 후)
     if (!isControllerMode) {
         syncStateToFirestore();
     }
+
+    // ⭐⭐⭐ 경고 메시지 표시 함수 추가 ⭐⭐⭐
+    function showAlert() {
+        if (!limitAlert) return;
+
+        // 이미 타이머가 실행 중이면 초기화
+        if (alertTimer) {
+            clearTimeout(alertTimer);
+        }
+
+        limitAlert.classList.add('show'); // CSS 클래스를 추가하여 보이게 함
+
+        // 3초 후에 자동으로 숨김
+        alertTimer = setTimeout(() => {
+            limitAlert.classList.remove('show');
+            alertTimer = null; // 타이머 초기화
+        }, 3000); // 3000ms = 3초
+    }
+    // ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐
+
 });
+
