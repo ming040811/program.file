@@ -29,7 +29,7 @@ body {
 
 .controller-button {
     padding: 8px 16px;
-    background-color: #5bc0de;
+    background-color: #5bc0de; /* 기존 색상과 다르게 임의 지정 */
     color: white;
     border: none;
     border-radius: 5px;
@@ -54,7 +54,6 @@ body {
     display: flex;
     flex-grow: 1;
     overflow: hidden;
-    position: relative; /* 경고 메시지 바 위치 기준 */
 }
 
 /* 에셋 패널 */
@@ -106,7 +105,7 @@ body {
     align-items: center;
     padding: 20px;
     overflow: hidden;
-    position: relative;
+    position: relative; 
 }
 
 #canvas {
@@ -116,7 +115,7 @@ body {
     max-height: 100%;
     background-color: white;
     position: relative;
-    overflow: hidden;
+    overflow: hidden; 
     background-size: cover;
     background-position: center;
 }
@@ -194,9 +193,9 @@ body {
     border-radius: 3px;
     line-height: 0;
 }
-
-.controls button:hover {
-    background-color: #f0f0f0;
+ 
+.controls button:hover { 
+    background-color: #f0f0f0; 
 }
 
 .controls button:active {
@@ -211,23 +210,23 @@ body {
 /* 스냅 가이드 */
 .snap-guide {
     position: absolute;
-    background-color: rgba(255, 77, 77, 0.5);
+    background-color: rgba(255, 77, 77, 0.5); 
     display: none;
     z-index: 999;
-    pointer-events: none;
+    pointer-events: none; 
 }
 
 .vertical-guide {
-    width: 2px;
-    height: 100%;
+    width: 2px; 
+    height: 100%; 
     top: 0;
     left: 50%;
     transform: translateX(-50%);
 }
 
 .horizontal-guide {
-    height: 2px;
-    width: 100%;
+    height: 2px; 
+    width: 100%; 
     top: 50%;
     left: 0;
     transform: translateY(-50%);
@@ -262,7 +261,7 @@ body {
     position: relative;
     background-size: cover;
     background-position: center;
-    overflow: hidden;
+    overflow: hidden; 
 }
 
 .scene.active {
@@ -277,153 +276,3 @@ body {
 .asset-container::-webkit-scrollbar-thumb { background: #e0e0e0; border-radius: 4px; }
 .asset-container::-webkit-scrollbar-thumb:hover { background: #c1c1c1; }
 .asset-container::-webkit-scrollbar-button { display: none; }
-
-/* 모바일 컨트롤러 UI 스타일 (터치패드 크기 고정) */
-#mobile-controller-ui {
-    display: none; /* PC에서는 숨김 */
-    height: 100vh;
-    width: 100vw;
-    background: #f0f0f0;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center; /* 요소들을 수직 중앙 정렬 */
-    padding: 20px;
-    box-sizing: border-box;
-    overflow-y: auto; /* 내용 많아지면 스크롤 */
-}
-
-#controller-status {
-    color:#4F99B2;
-    text-align: center;
-    margin-bottom: 10px;
-    flex-shrink: 0; /* 상태 텍스트 크기 유지 */
-}
-
-#selection-area {
-    width: 100%;
-    max-width: 350px;
-    text-align: center;
-    margin-bottom: 15px;
-    flex-shrink: 0; /* 선택 영역 크기 유지 */
-}
-
-#selection-area p {
-    margin: 5px 0 10px;
-    font-weight: bold;
-}
-
-#deco-selection {
-    display: flex;
-    justify-content: center; /* 가운데 정렬로 변경 */
-    flex-wrap: wrap; /* 버튼 많아지면 줄바꿈 */
-    gap: 8px;
-}
-
-.ctrl-deco-btn {
-    padding: 8px 12px; /* 패딩 조정 */
-    border: 1px solid #ccc;
-    background: white;
-    border-radius: 5px; /* 둥근 모서리 */
-    font-size: 14px; /* 글자 크기 조정 */
-    cursor: pointer;
-    min-width: 80px; /* 최소 너비 지정 */
-}
-
-/* 활성화된 버튼 스타일 */
-.ctrl-deco-btn[style*="rgb(79, 153, 178)"] { /* #4F99B2 */
-    background-color: #4F99B2 !important; /* !important 추가 */
-    color: white !important;
-    border-color: #4F99B2 !important;
-}
-
-
-/* 터치패드 스타일 (크기 고정) */
-#touchpad {
-    width: 685px;  /* 요청하신 가로 크기 */
-    height: 1218px; /* 요청하신 세로 크기 */
-    background: white;
-    border: 2px solid #4F99B2;
-    border-radius: 15px;
-    position: relative;
-    cursor: grab;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    margin-bottom: 20px; /* 아래 버튼과의 간격 */
-    flex-shrink: 0; /* 공간 부족해도 크기 줄어들지 않도록 함 */
-}
-
-#touchpad > div { /* 내부 안내 텍스트 */
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    color: #aaa;
-    font-size: 14px;
-    text-align: center; /* 텍스트 가운데 정렬 */
-    padding: 10px; /* 텍스트 잘림 방지 */
-}
-
-#control-buttons {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
-    width: 100%;
-    max-width: 350px;
-    flex-shrink: 0; /* 버튼 영역 크기 유지 */
-}
-
-.ctrl-action-btn {
-    padding: 12px;
-    background: #fff;
-    border: 1px solid #ccc;
-    border-radius: 8px;
-    font-size: 16px;
-    cursor: pointer;
-    text-align: center;
-}
-.ctrl-action-btn:active {
-    background-color: #eee; /* 클릭 효과 */
-}
-
-/* 삭제 버튼 특별 스타일 */
-.ctrl-action-btn[data-action="delete"] {
-    background: #f8d7da;
-    border: 1px solid #f5c6cb;
-    color: #721c24;
-}
-.ctrl-action-btn[data-action="delete"]:active {
-    background: #f1b0b7;
-}
-
-/* ⭐⭐⭐ 경고 메시지 바 스타일 수정 ⭐⭐⭐ */
-.alert-bar {
-    display: none; /* 평소에는 숨김 */
-    position: absolute; /* .app-main 기준으로 위치 */
-    bottom: 20px; /* 하단에서 20px 띄움 */
-    left: 50%; /* 가운데 정렬 */
-    transform: translateX(-50%); /* 가운데 정렬 */
-    /* ⭐ 수정: width, height 조정 ⭐ */
-    width: 1300px; /* ⭐ 너비 1300px로 수정 ⭐ */
-    max-width: 90%; /* 화면 너비를 넘지 않도록 */
-    height: 50px; /* ⭐ 높이 50px로 수정 ⭐ */
-    background-color: #3A3A3A; /* 요청하신 배경색 */
-    color: white; /* 요청하신 글자색 */
-    /* ⭐ 수정: padding 조정 ⭐ */
-    padding: 10px 15px; /* 좌우 여백 줄임 */
-    border-radius: 8px; /* 둥근 모서리 */
-    /* box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3); <-- 그림자 제거 */
-    display: flex; /* 내부 요소 정렬용 */
-    align-items: center; /* 수직 가운데 정렬 */
-    justify-content: center; /* 수평 가운데 정렬 */
-    text-align: center; /* 텍스트 가운데 정렬 */
-    font-size: 16px; /* 글자 크기 (유지) */
-    z-index: 1001; /* 다른 요소 위에 표시 */
-    box-sizing: border-box; /* 패딩 포함 크기 계산 */
-
-    opacity: 0; /* 초기 투명 상태 */
-    transition: opacity 0.3s ease-in-out; /* 부드러운 효과 */
-}
-
-.alert-bar.show {
-    display: flex; /* 보이도록 설정 */
-    opacity: 1; /* 보이도록 설정 */
-}
