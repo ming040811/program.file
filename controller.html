@@ -1,77 +1,39 @@
 <!DOCTYPE html>
-
 <html lang="ko">
-
 <head>
-
     <meta charset="UTF-8">
-
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <title>모바일 컨트롤러</title>
-
     <link rel="stylesheet" href="controller.css">
-
 </head>
-
 <body>
 
-
-
     <div class="touch-joystick-container">
-
         <p class="guide-text">아이템 선택 및 이동 (활성화된 점을 드래그)</p>
-
         <div class="touch-pads-wrapper">
-
             <button class="touch-pad" id="touch-pad-1" data-index="1" title="아이템 1 선택 및 이동"></button>
-
             <button class="touch-pad" id="touch-pad-2" data-index="2" title="아이템 2 선택 및 이동"></button>
-
             <button class="touch-pad" id="touch-pad-3" data-index="3" title="아이템 3 선택 및 이동"></button>
-
         </div>
-
     </div>
-
-
 
     <div class="control-panel">
-
         <div class="scale-rotate-wrapper">
-
             <div class="control-group">
-
                 <p>회전</p>
-
                 <button class="control-btn rotate" data-action="rotate" data-direction="LEFT" title="반시계 회전">⟲</button>
-
                 <button class="control-btn rotate" data-action="rotate" data-direction="RIGHT" title="시계 회전">⟳</button>
-
             </div>
-
-
 
             <div class="control-group">
-
                 <p>크기</p>
-
                 <button class="control-btn scale" data-action="scale" data-direction="UP" title="크게">➕</button>
-
                 <button class="control-btn scale" data-action="scale" data-direction="DOWN" title="작게">➖</button>
-
             </div>
-
         </div>
-
     </div>
 
-
-
     <script src="controller.js"></script>
-
 </body>
-
 </html>
-
 </html>
