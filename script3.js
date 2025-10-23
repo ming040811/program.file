@@ -360,38 +360,6 @@ document.addEventListener('DOMContentLoaded', () => {
         syncStateToFirestore(); // 상태 변경 시 컨트롤러에 동기화
     }
 
-    // --- ⭐ [수정됨] 2-1. 아이템 스타일만 가볍게 업데이트하는 함수 ---
-    function updateElementStyle(decoData) {
-        const element = document.getElementById(decoData.id);
-        if (!element) return;
-
-        element.style.left = decoData.x + 'px';
-        element.style.top = decoData.y + 'px';
-        element.style.width = decoData.width + 'px';
-        element.style.height = decoData.height + 'px';
-        element.style.transform = `rotate(${decoData.rotation}deg)`;
-
-        const img = element.querySelector('img');
-        if (img) {
-            img.style.transform = `scaleX(${decoData.scaleX})`;
-        }
-    }
-
-    // --- ⭐ [수정됨] 2-2. PC 상태 동기화/저장을 위한 Throttling ---
-    let pcUpdateTimer = null;
-    const PC_UPDATE_INTERVAL = 500; // 0.5초마다 썸네일/상태 동기화
-
-    function requestPcUpdate() {
-        if (pcUpdateTimer) return; // 이미 업데이트 요청이 예약됨
-
-        pcUpdateTimer = setTimeout(() => {
-            syncStateToFirestore(); // 0.5초마다 컨트롤러로 상태 전송
-            updateThumbnail(currentScene); // 0.5초마다 썸네일 업데이트
-            pcUpdateTimer = null;
-        }, PC_UPDATE_INTERVAL);
-    }
-
-
     // --- 3. 컨트롤러 조작 명령 처리 함수 ---
     // PC에서 직접 실행하거나, 모바일에서 온 명령을 여기서 처리합니다.
     function handleControllerControl(id, action, data) {
@@ -415,28 +383,21 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!decoData) return;
 
         const step = { move: 1, rotate: 5, scale: 0.02 }; // Nudge에 맞춰 move step을 줄였습니다.
-        // let updated = false; // ⭐ 삭제: 이 로직은 더 이상 필요 없음
+        let updated = false;
 
         if (action === 'nudge') {
             const dx = data.dx || 0;
             const dy = data.dy || 0;
             
-            // 1. 데이터 업데이트
+            // 모바일에서 미세 조정을 위해 나눠서 보냈으므로, 여기서는 바로 적용
             decoData.x += dx;
             decoData.y += dy;
-            // 2. ⭐ [수정] DOM 경량 업데이트 (renderScene 대신)
-            updateElementStyle(decoData);
-            // 3. ⭐ [추가] 0.5초 뒤 썸네일/상태 동기화 요청
-            requestPcUpdate();
+            updated = true;
             
         } else if (action === 'rotate') {
             const direction = data.direction;
-            if (direction === 'LEFT') { decoData.rotation -= step.rotate; }
-            else if (direction === 'RIGHT') { decoData.rotation += step.rotate; }
-            // 2. ⭐ [수정] DOM 경량 업데이트
-            updateElementStyle(decoData);
-            // 3. ⭐ [추가] 0.5초 뒤 썸네일/상태 동기화 요청
-            requestPcUpdate();
+            if (direction === 'LEFT') { decoData.rotation -= step.rotate; updated = true; }
+            else if (direction === 'RIGHT') { decoData.rotation += step.rotate; updated = true; }
             
         } else if (action === 'scale') {
             const direction = data.direction;
@@ -451,36 +412,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 decoData.x -= deltaWidth / 2;
                 decoData.y -= deltaHeight / 2;
                 
-                // 2. ⭐ [수정] DOM 경량 업데이트
-                updateElementStyle(decoData);
-                // 3. ⭐ [추가] 0.5초 뒤 썸네일/상태 동기화 요청
-                requestPcUpdate();
+                updated = true;
             }
         } else if (action === 'flip') {
             decoData.scaleX *= -1;
-            // 2. ⭐ [수정] DOM 경량 업데이트
-            updateElementStyle(decoData);
-            // 3. ⭐ [추가] 0.5초 뒤 썸네일/상태 동기화 요청
-            requestPcUpdate();
-
+            updated = true;
         } else if (action === 'delete') {
             const index = storyData[currentScene].decorations.findIndex(d => d.id === id);
             if (index > -1) {
                 storyData[currentScene].decorations.splice(index, 1);
                 const element = document.getElementById(id);
                 if (element) element.remove();
-                selectItem(null); // 삭제 후 선택 해제 및 동기화 (즉시 실행)
-                updateThumbnail(currentScene); // 썸네일 즉시 업데이트
+                selectItem(null); // 삭제 후 선택 해제 및 동기화
+                updateThumbnail(currentScene);
                 return; 
             }
         }
 
-        // ⭐ 삭제: 이 블록이 깜빡임의 원인이었음
-        /*
         if (updated) {
             renderScene(currentScene); 
         }
-        */
     }
 
     // --- 4. 장식 아이템 추가 이벤트 핸들러 (PC에서만 작동) ---
@@ -513,14 +464,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 scaleX: 1,
             };
             storyData[currentScene].decorations.push(newDeco);
-            renderScene(currentScene); // ❗️ 아이템 추가 시에는 전체 렌더링 (정상)
+            renderScene(currentScene);
             selectItem(newDeco.id);
         });
     });
 
 
     // --- 5. 씬 렌더링 함수 ---
-    // (이 함수는 이제 씬 전환 / 아이템 추가/삭제 시에만 호출됨)
     function renderScene(sceneNumber) {
         if (!canvas) return; // canvas가 없으면 함수 종료
         const data = storyData[sceneNumber];
@@ -664,7 +614,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             decoData.x = element.offsetLeft;
             decoData.y = element.offsetTop;
-            updateThumbnail(currentScene); // PC 드래그 종료 시 썸네일/동기화 (즉시 실행)
+            updateThumbnail(currentScene);
             syncStateToFirestore();
         }
         
@@ -748,7 +698,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 decoData.height = parseFloat(element.style.height);
                 decoData.x = element.offsetLeft;
                 decoData.y = element.offsetTop;
-                updateThumbnail(currentScene); // PC 리사이즈 종료 시 썸네일/동기화 (즉시 실행)
+                updateThumbnail(currentScene);
                 syncStateToFirestore();
             };
         }
@@ -766,7 +716,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 let startRotation = decoData.rotation;
 
                 document.onmousemove = function(e_move) {
-                    const currentAngle = Math.atan2(e_move.clientY - centerY, e_move.clientX - centerX) * (180 / Math.PI);
+                    const currentAngle = Math.atan2(e_move.clientY - centerY, e.clientX - centerX) * (180 / Math.PI);
                     let newRotation = startRotation + (currentAngle - startAngle);
                     
                     const snapThreshold = 6;
@@ -781,8 +731,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
                 document.onmouseup = function() {
                     document.onmousemove = null; document.onmouseup = null;
-                    // ❗️[수정] 데이터만 업데이트하고 동기화는 requestPcUpdate에 맡길 수 있으나,
-                    // PC 조작은 즉시 동기화하는 것이 사용자 경험에 더 좋습니다. (기존 로직 유지)
                     updateThumbnail(currentScene);
                     syncStateToFirestore();
                 };
@@ -794,7 +742,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (flipButton) {
             flipButton.addEventListener('click', (e) => {
                 e.stopPropagation();
-                handleControllerControl(element.id, 'flip'); // ❗️이 함수는 이제 requestPcUpdate를 호출
+                handleControllerControl(element.id, 'flip');
             });
         }
         
@@ -803,7 +751,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (deleteButton) {
             deleteButton.addEventListener('click', (e) => {
                 e.stopPropagation();
-                handleControllerControl(element.id, 'delete'); // ❗️이 함수는 즉시 동기화/삭제
+                handleControllerControl(element.id, 'delete');
             });
         }
     }
@@ -844,7 +792,7 @@ document.addEventListener('DOMContentLoaded', () => {
             scene.classList.add('active');
             currentScene = scene.dataset.scene;
             selectedDecoId = null;
-            renderScene(currentScene); // ❗️ 씬 전환 시 전체 렌더링 (정상)
+            renderScene(currentScene);
         });
     });
     
