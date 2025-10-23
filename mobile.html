@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>나만의 동화 만들기 - 꾸미기 모드 (모바일)</title>
+    <link rel="stylesheet" href="style3.css">
+    
+    </head>
+<body>
+
+    <div id="mobile-controller-ui" style="display: none; height: 100vh; width: 100vw; background: #f0f0f0; flex-direction: column; align-items: center; justify-content: space-around; padding: 20px; box-sizing: border-box;">
+        
+        <h2 id="controller-status" style="color:#4F99B2;">PC 연결 대기 중...</h2>
+
+        <div id="selection-area" style="width: 100%; max-width: 350px; text-align: center;">
+            <p style="margin: 5px 0 10px; font-weight: bold;">조작할 아이템 선택:</p>
+            <div id="deco-selection" style="display: flex; justify-content: space-around; gap: 8px;">
+                <button class="ctrl-deco-btn" style="padding: 10px; border: 1px solid #ccc; background: white;">아이템 1</button>
+                <button class="ctrl-deco-btn" style="padding: 10px; border: 1px solid #ccc; background: white;">아이템 2</button>
+                <button class="ctrl-deco-btn" style="padding: 10px; border: 1px solid #ccc; background: white;">아이템 3</button>
+            </div>
+        </div>
+        
+        <div id="touchpad" style="width: 250px; height: 250px; background: white; border: 2px solid #4F99B2; border-radius: 15px; position: relative; cursor: grab; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #aaa; font-size: 14px;">드래그하여 미세 조정</div>
+        </div>
+
+        <div id="control-buttons" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; width: 100%; max-width: 350px;">
+            <button class="ctrl-action-btn" data-action="rotate-left" style="padding: 12px; background: #fff; border: 1px solid #ccc; border-radius: 8px; font-size: 16px;">⟲ 회전-</button>
+            <button class="ctrl-action-btn" data-action="rotate-right" style="padding: 12px; background: #fff; border: 1px solid #ccc; border-radius: 8px; font-size: 16px;">회전+ ⟳</button>
+            <button class="ctrl-action-btn" data-action="scale-down" style="padding: 12px; background: #fff; border: 1px solid #ccc; border-radius: 8px; font-size: 16px;">축소-</button>
+            <button class="ctrl-action-btn" data-action="scale-up" style="padding: 12px; background: #fff; border: 1px solid #ccc; border-radius: 8px; font-size: 16px;">확대+</button>
+            <button class="ctrl-action-btn" data-action="flip" style="padding: 12px; background: #fff; border: 1px solid #ccc; border-radius: 8px; font-size: 16px;">↔ 좌우 반전</button>
+            <button class="ctrl-action-btn" data-action="delete" style="padding: 12px; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 8px; font-size: 16px; color: #721c24;">🗑️ 삭제</button>
+        </div>
+    </div>
+    
+    <header class="app-header">
+        <button id="open-controller-btn" class="controller-button">📲 모바일 컨트롤러 연결 (QR)</button>
+        <button class="export-button">영상 만들기</button>
+    </header>
+    
+    <div class="app-main">
+        <aside class="asset-panel">
+            <div class="asset-container">
+                <div id="decorations" class="asset-list">
+                    <img src="img/사각형.png" class="asset-item" data-type="decoration" data-canvas-src="img/사각형.png">
+                    <img src="img/나비.png" class="asset-item" data-type="decoration" data-canvas-src="img/나비.png">
+                    </div>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <div class="canvas-wrapper">
+                <div id="canvas">
+                    <div class="snap-guide vertical-guide"></div>
+                    <div class="snap-guide horizontal-guide"></div>
+                </div>
+            </div>
+            
+            <div class="timeline">
+                <div class="timeline-strip">
+                    <div class="scene active" data-scene="1"></div><span class="arrow">→</span>
+                    <div class="scene" data-scene="2"></div><span class="arrow">→</span>
+                    <div class="scene" data-scene="3"></div><span class="arrow">→</span>
+                    <div class="scene" data-scene="4"></div><span class="arrow">→</span>
+                    <div class="scene" data-scene="5"></div><span class="arrow">→</span>
+                    <div class="scene" data-scene="6"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="qr-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center; flex-direction: column;">
+        <h2 style="color: white; margin-bottom: 20px;">스마트폰으로 QR 코드를 스캔하세요.</h2>
+        <div id="qrcode-container" style="
+            width: 256px; 
+            height: 256px; 
+            background: white; 
+            padding: 15px; 
+            border-radius: 5px;">
+        </div>
+        <button onclick="document.getElementById('qr-modal').style.display = 'none';" 
+                style="margin-top: 20px; padding: 10px 20px; font-size: 16px; cursor: pointer;">닫기</button>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+    <script src="script3.js"></script>
+    
+</body>
+</html>
