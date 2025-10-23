@@ -1,179 +1,138 @@
 :root {
-    --primary-color: #58ACC6;
-    --primary-color-dim: #bce0ee;
-    --grey-color: #E0E0E0;
-    --background-color: #F5F5F5; /* ⭐ 수정: #F0F3F4 -> #F5F5F5 */
-    --text-color: #4A4A4A;
-    --delete-color: #F8D7DA;
-    --delete-text-color: #DC3545;
-    --shadow-color: rgba(0, 0, 0, 0.1);
-}
-
-* {
-    box-sizing: border-box;
-    -webkit-tap-highlight-color: transparent; /* 모바일 클릭 시 파란색 하이라이트 제거 */
+    --primary-color: #4F99B2;
+    --secondary-color: #f4f4f4;
+    --touch-color: #999; 
+    --touch-shadow: rgba(0, 0, 0, 0.2);
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Malgun Gothic', sans-serif;
+    font-family: 'Malgun Gothic', sans-serif;
     margin: 0;
     padding: 10px;
-    background-color: var(--background-color); /* ⭐ 수정된 배경색 적용 */
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    overflow: hidden; /* 스크롤 방지 */
-    -webkit-touch-callout: none; /* 롱클릭 메뉴 방지 */
-    -webkit-user-select: none; /* 텍스트 선택 방지 */
-    user-select: none;
-}
-
-/* 1. 전체 세로 레이아웃 */
-.controller-body {
-    display: flex;
-    flex-direction: row; /* 가로로 2단 배치 */
-    width: 100%;
-    height: 100%;
-    max-width: 800px; /* 최대 너비 제한 */
-    max-height: 450px; /* 최대 높이 제한 */
-    gap: 15px;
-}
-
-/* 2. 왼쪽 캔버스 영역 */
-.canvas-container {
-    flex-grow: 1; /* 남는 공간 모두 차지 */
+    background-color: var(--secondary-color);
     display: flex;
     flex-direction: column;
-    min-width: 0; /* flex 아이템 축소 문제 해결 */
-}
-
-#controller-status {
-    font-size: 16px;
-    color: var(--primary-color);
-    margin: 0 0 10px 5px;
-    font-weight: 600;
-    white-space: nowrap;
-}
-
-#touch-canvas {
-    width: 100%;
-    height: 100%; /* 부모 높이에 맞춤 */
-    background-color: #FFFFFF; /* 흰색 캔버스 유지 */
-    border-radius: 12px;
-    box-shadow: 0 2px 8px var(--shadow-color);
-    position: relative;
-    overflow: hidden;
-    aspect-ratio: 16 / 9; /* 16:9 비율 강제 */
-}
-
-/* 3. 동적 아이템 버튼 (회색 원) */
-.deco-dot {
-    position: absolute;
-    width: 50px;
-    height: 50px;
-    background-color: var(--grey-color);
-    border: 3px solid rgba(0,0,0,0.05);
-    border-radius: 50%;
-    cursor: grab;
-    transition: background-color 0.2s, box-shadow 0.2s, transform 0.1s;
-    display: flex;
-    justify-content: center;
     align-items: center;
-    /* 초기 위치 (JS가 덮어씀) */
-    left: 50%; 
-    top: 50%;
-    transform: translate(-50%, -50%);
+    height: 100vh;
+    box-sizing: border-box;
+    overflow-y: auto;
 }
 
-.deco-dot:active {
-    transform: translate(-50%, -50%) scale(0.95); /* 클릭 시 살짝 작아짐 */
-    cursor: grabbing;
+/* 캔버스 프리뷰 관련 스타일 모두 제거됨 */
+
+/* 아이템 선택 및 이동 영역 */
+.touch-joystick-container {
+    width: 95%;
+    max-width: 600px;
+    margin-bottom: 25px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 250px; /* 터치패드 영역 확보 */
+    justify-content: center;
+    background-color: #ffffff;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
-/* 활성화된 버튼 (파란색 원) */
-.deco-dot.selected {
+.guide-text {
+    font-size: 14px;
+    color: #555;
+    margin-bottom: 15px;
+    font-weight: bold;
+}
+
+.touch-pads-wrapper {
+    position: relative;
+    width: 200px; 
+    height: 180px; 
+}
+
+/* Frame 3.jpg 디자인 기반의 터치패드 스타일 */
+.touch-pad {
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: none;
+    background-color: var(--touch-color);
+    box-shadow: 0 0 10px 5px var(--touch-shadow); 
+    color: transparent;
+    font-size: 1px;
+    cursor: grab; /* 드래그 가능함을 표시 */
+    transition: background-color 0.2s, opacity 0.3s;
+    opacity: 0; 
+}
+
+/* Frame 3.jpg와 유사한 3점 배치 (초기 위치) */
+#touch-pad-1 { left: 15%; bottom: 10%; } 
+#touch-pad-2 { left: 50%; top: 5%; transform: translateX(-50%); } 
+#touch-pad-3 { right: 10%; bottom: 35%; } 
+
+
+.touch-pad.active {
+    opacity: 1; /* 아이템이 있을 때 나타남 */
+}
+
+.touch-pad.selected {
     background-color: var(--primary-color);
-    border-color: var(--primary-color-dim);
-    box-shadow: 0 0 15px var(--primary-color-dim);
+    box-shadow: 0 0 15px 5px var(--primary-color), 0 0 10px 5px var(--touch-shadow);
     z-index: 10;
 }
 
-/* 4. 오른쪽 컨트롤 패널 */
+.touch-pad:active:not(.selected) {
+    background-color: #aaa;
+}
+
+/* 조작 패널 (회전 및 크기) 스타일은 이전과 동일 */
 .control-panel {
-    flex-shrink: 0; /* 크기 고정 */
-    width: 140px; /* ⭐ 수정: 130px -> 140px (글자 잘림 방지) */
+    width: 95%;
+    max-width: 600px;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
-    gap: 10px;
-}
-
-.control-group {
-    background-color: #FFFFFF; /* 흰색 버튼 배경 유지 */
-    border-radius: 12px;
-    box-shadow: 0 2px 8px var(--shadow-color);
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
     align-items: center;
-    padding: 8px 10px;
-    height: 60px;
+    gap: 15px;
+    padding: 15px 10px;
+    background-color: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    opacity: 0.4; 
+    transition: opacity 0.3s;
 }
 
+.scale-rotate-wrapper {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+}
+.control-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
 .control-group p {
+    font-weight: bold;
     margin: 0;
+    color: var(--primary-color);
     font-size: 14px;
-    font-weight: 600;
-    color: var(--text-color);
 }
-
 .control-btn {
-    width: 40px;
-    height: 40px;
+    width: 45px;
+    height: 45px;
     border: none;
     border-radius: 50%;
-    background-color: var(--primary-color-dim);
-    color: var(--primary-color);
-    font-size: 16px;
-    font-weight: bold;
+    background-color: var(--primary-color);
+    color: white;
+    font-size: 18px;
     cursor: pointer;
+    transition: background-color 0.1s;
     display: flex;
     justify-content: center;
     align-items: center;
-    padding: 0;
-    transition: background-color 0.1s;
 }
-
-.control-btn:active {
-    background-color: var(--primary-color);
-    color: white;
-}
-
-/* 삭제 버튼 */
-.control-btn.delete {
-    width: 100%;
-    height: 60px;
-    border-radius: 12px;
-    background-color: var(--delete-color); /* 삭제 버튼 색상 유지 */
-    color: var(--delete-text-color);
-    font-size: 16px;
-    font-weight: 600;
-}
-
-.control-btn.delete:active {
-    background-color: var(--delete-text-color);
-    color: white;
-}
-
-/* 버튼 비활성화 */
 .control-btn:disabled {
-    background-color: #F0F0F0;
-    color: #C0C0C0;
+    background-color: #ccc;
     cursor: not-allowed;
 }
-
-.control-btn:disabled svg {
-    stroke: #C0C0C0;
-}
-
