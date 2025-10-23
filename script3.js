@@ -34,31 +34,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const qrModal = document.getElementById('qr-modal');
     const qrcodeDiv = document.getElementById('qrcode-container');
 
-    // ⭐⭐⭐ 경고 바 로직 추가 (1/3) ⭐⭐⭐
-    // 경고 바 DOM 요소
-    const alertBar = document.getElementById('alert-bar');
-    let alertTimeout = null; // 경고 바 타이머
-
-    // 경고 바 표시 함수
-    function showAlert(message) {
-        if (!alertBar) return; // 요소가 없으면 중단
-
-        alertBar.textContent = message;
-        alertBar.classList.add('show');
-
-        // 이전에 설정된 타임아웃이 있다면 취소
-        if (alertTimeout) {
-            clearTimeout(alertTimeout);
-        }
-
-        // 3초 후에 'show' 클래스 제거
-        alertTimeout = setTimeout(() => {
-            alertBar.classList.remove('show');
-            alertTimeout = null;
-        }, 3000);
-    }
-    // ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐
-
     // 스토리 데이터
     const storyData = {
         '1': { background: '', decorations: [] }, 
@@ -517,13 +492,7 @@ document.addEventListener('DOMContentLoaded', () => {
         item.addEventListener('click', () => {
             if (storyData[currentScene].decorations.length >= 3) {
                 // alert() 대신 console.warn 사용
-                // console.warn("장식 아이템은 최대 3개까지만 추가할 수 있습니다.");
-                
-                // ⭐⭐⭐ 경고 바 로직 추가 (2/3) ⭐⭐⭐
-                // 경고 바 표시로 변경
-                showAlert("장식 아이템은 최대 3개까지만 추가할 수 있습니다.");
-                // ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐
-                
+                console.warn("장식 아이템은 최대 3개까지만 추가할 수 있습니다.");
                 return;
             }
 
@@ -598,7 +567,7 @@ document.addEventListener('DOMContentLoaded', () => {
         controls.className = 'controls';
         // ❗️ 이미지 경로 확인! ❗️
         controls.innerHTML = `<button class="flip" title="좌우반전"><img src="img/좌우반전.png" alt="좌우반전" onerror="this.parentNode.innerHTML='반전'"></button>
-                                <button class="delete" title="삭제"><img src="img/휴지통.png" alt="삭제" onerror="this.parentNode.innerHTML='삭제'"></button>`;
+                              <button class="delete" title="삭제"><img src="img/휴지통.png" alt="삭제" onerror="this.parentNode.innerHTML='삭제'"></button>`;
         
         const handles = ['tl', 'tr', 'bl', 'br', 'rotator'].map(type => {
             const handle = document.createElement('div');
@@ -923,3 +892,4 @@ document.addEventListener('DOMContentLoaded', () => {
         syncStateToFirestore();
     }
 });
+
