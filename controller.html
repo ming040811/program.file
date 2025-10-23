@@ -2,38 +2,77 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- 
+      모바일 뷰포트 설정: 사용자가 확대/축소하는 것을 막아서 
+      컨트롤러 UI가 앱처럼 작동하게 합니다.
+    -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
     <title>모바일 컨트롤러</title>
     <link rel="stylesheet" href="controller.css">
 </head>
 <body>
 
-    <div class="touch-joystick-container">
-        <p class="guide-text">아이템 선택 및 이동 (활성화된 점을 드래그)</p>
-        <div class="touch-pads-wrapper">
-            <button class="touch-pad" id="touch-pad-1" data-index="1" title="아이템 1 선택 및 이동"></button>
-            <button class="touch-pad" id="touch-pad-2" data-index="2" title="아이템 2 선택 및 이동"></button>
-            <button class="touch-pad" id="touch-pad-3" data-index="3" title="아이템 3 선택 및 이동"></button>
+    <!-- 전체 레이아웃 (가로 정렬) -->
+    <div class="controller-body">
+
+        <!-- 1. 왼쪽: 터치 캔버스 영역 -->
+        <div class="canvas-container">
+            <!-- PC 연결 상태 메시지 -->
+            <h2 id="controller-status">PC 연결 대기 중...</h2>
+
+            <!-- 
+              16:9 비율의 터치 캔버스.
+              아이템을 상징하는 동적 버튼(.deco-dot)이 여기에 추가됩니다.
+            -->
+            <div id="touch-canvas">
+                <!-- 예: <div class="deco-dot" data-id="deco-123" style="left: 50px; top: 50px;"></div> -->
+            </div>
         </div>
-    </div>
 
-    <div class="control-panel">
-        <div class="scale-rotate-wrapper">
+        <!-- 2. 오른쪽: 컨트롤 버튼 패널 -->
+        <div class="control-panel">
+            
+            <!-- 회전 그룹 -->
             <div class="control-group">
+                <button class="control-btn" data-action="rotate" data-direction="LEFT" title="반시계 회전">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4.5l-6 7.5 6 7.5"/></svg>
+                </button>
                 <p>회전</p>
-                <button class="control-btn rotate" data-action="rotate" data-direction="LEFT" title="반시계 회전">⟲</button>
-                <button class="control-btn rotate" data-action="rotate" data-direction="RIGHT" title="시계 회전">⟳</button>
+                <button class="control-btn" data-action="rotate" data-direction="RIGHT" title="시계 회전">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4.5l6 7.5-6 7.5"/></svg>
+                </button>
+            </div>
+            
+            <!-- 크기 그룹 -->
+            <div class="control-group">
+                <button class="control-btn" data-action="scale" data-direction="UP" title="확대">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                </button>
+                <p>크기</p>
+                <button class="control-btn" data-action="scale" data-direction="DOWN" title="축소">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></svg>
+                </button>
             </div>
 
+            <!-- 좌우반전 그룹 -->
             <div class="control-group">
-                <p>크기</p>
-                <button class="control-btn scale" data-action="scale" data-direction="UP" title="크게">➕</button>
-                <button class="control-btn scale" data-action="scale" data-direction="DOWN" title="작게">➖</button>
+                <button class="control-btn" data-action="flip" title="좌우반전 (왼쪽)">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4.5l-6 7.5 6 7.5"/></svg>
+                </button>
+                <p>좌우반전</p>
+                <button class="control-btn" data-action="flip" title="좌우반전 (오른쪽)">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4.5l6 7.5-6 7.5"/></svg>
+                </button>
             </div>
+
+            <!-- 삭제 버튼 -->
+            <button class="control-btn delete" data-action="delete" title="삭제">
+                삭제
+            </button>
+
         </div>
     </div>
 
     <script src="controller.js"></script>
 </body>
-</html>
 </html>
