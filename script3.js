@@ -45,6 +45,28 @@ document.addEventListener('DOMContentLoaded', () => {
     let selectedDecoId = null; 
     let activeDecoId = null; // 컨트롤러 모드에서 현재 조작할 아이템 ID (모바일에서 사용)
 
+    let toastTimer = null; // ⭐ [추가됨] 알림 타이머
+
+    // ⭐ [추가됨] 알림창 표시 함수
+    function showLimitToast() {
+        const toast = document.getElementById('limit-toast-notification');
+        if (!toast) return;
+
+        // 이미 알림이 떠 있다면 기존 타이머 초기화
+        if (toastTimer) {
+            clearTimeout(toastTimer);
+        }
+
+        // 알림창을 'flex'로 표시 (CSS의 align/justify 적용)
+        toast.style.display = 'flex'; 
+
+        // 3초 후에 자동으로 닫기
+        toastTimer = setTimeout(() => {
+            toast.style.display = 'none';
+            toastTimer = null;
+        }, 3000);
+    }
+
     // =========================================================================
     // ⭐ 🚨통신 핵심 로직: Firebase Firestore를 통한 데이터 송수신🚨 ⭐
     // =========================================================================
@@ -492,7 +514,10 @@ document.addEventListener('DOMContentLoaded', () => {
         item.addEventListener('click', () => {
             if (storyData[currentScene].decorations.length >= 3) {
                 // alert() 대신 console.warn 사용
-                console.warn("장식 아이템은 최대 3개까지만 추가할 수 있습니다.");
+                // console.warn("장식 아이템은 최대 3개까지만 추가할 수 있습니다."); // ❗️ 기존 코드
+
+                // ⭐ [수정됨] 알림창 표시 함수 호출
+                showLimitToast(); 
                 return;
             }
 
@@ -567,7 +592,7 @@ document.addEventListener('DOMContentLoaded', () => {
         controls.className = 'controls';
         // ❗️ 이미지 경로 확인! ❗️
         controls.innerHTML = `<button class="flip" title="좌우반전"><img src="img/좌우반전.png" alt="좌우반전" onerror="this.parentNode.innerHTML='반전'"></button>
-                              <button class="delete" title="삭제"><img src="img/휴지통.png" alt="삭제" onerror="this.parentNode.innerHTML='삭제'"></button>`;
+                                <button class="delete" title="삭제"><img src="img/휴지통.png" alt="삭제" onerror="this.parentNode.innerHTML='삭제'"></button>`;
         
         const handles = ['tl', 'tr', 'bl', 'br', 'rotator'].map(type => {
             const handle = document.createElement('div');
@@ -892,4 +917,3 @@ document.addEventListener('DOMContentLoaded', () => {
         syncStateToFirestore();
     }
 });
-
