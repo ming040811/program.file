@@ -188,7 +188,7 @@ body {
 .controls button {
     border: none;
     background: none;
-  	 cursor: pointer;
+    cursor: pointer;
     padding: 5px;
     border-radius: 3px;
     line-height: 0;
@@ -278,42 +278,42 @@ body {
 .asset-container::-webkit-scrollbar-button { display: none; }
 
 
-/* ⭐ [수정됨] 아이템 제한 알림 (토스트) */
+/* ⭐ [수정됨] 아이템 제한 알림 (토스트) - 오류 수정본 */
 #limit-toast-notification {
     /* display: none; 은 인라인 스타일로 제어됩니다. */
     position: fixed;
-    
+    
     /* [수정] 위치: 중앙 -> 하단 */
     /* top: 50%; */
     bottom: 20px; /* 하단 여백 */
     left: 50%;
     /* transform: translate(-50%, -50%); */
     transform: translateX(-50%); /* 가로 중앙 정렬 */
-    
+    
     width: 1300px; 
     max-width: 90vw; 
-    
+    
     /* [수정] 높이 50px */
     height: 50px; 
-    
+    
     background-color: #3A3A3A; 
     color: white; 
     border-radius: 8px; 
-    
+    
     /* JS에서 display: 'flex'로 변경 시 중앙 정렬 */
     align-items: center; 
     justify-content: center;
-    
+    
     padding: 10px 20px;
     box-sizing: border-box;
     text-align: center;
     font-size: 16px;
-    
+    
     /* [수정] 글자 한 줄 처리 */
     /* line-height: 1.4; */
     white-space: nowrap; /* 줄바꿈 방지 */
     z-index: 2000; 
-
+  s
     /* [수정] 그림자 제거 */
     /* box-shadow: 0 4px 10px rgba(0,0,0,0.3); */
 }
