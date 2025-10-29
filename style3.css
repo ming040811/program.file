@@ -278,30 +278,31 @@ body {
 .asset-container::-webkit-scrollbar-button { display: none; }
 
 
-/* ⭐ [수정됨] 아이템 제한 알림 (토스트) */
+/* ⭐ [최종 수정] 아이템 제한 알림 (토스트) */
 #limit-toast-notification {
     /* display: none; 은 인라인 스타일로 제어됩니다. */
     position: fixed;
-    bottom: 20px; /* ⭐ 하단에서 20px 위로 */
+    bottom: 20px; /* 하단에서 20px 위로 */
     left: 50%;
-    transform: translateX(-50%); /* ⭐ X축만 중앙 정렬 */
+    transform: translateX(-50%); /* X축만 중앙 정렬 */
     
-    width: 1300px; 
-    max-width: 90vw; 
-    height: 50px; /* ⭐ 높이 50px */
+    width: 1300px; /* 요청하신 너비 */
+    max-width: 90vw; /* 화면이 1300px보다 작을 경우를 대비 */
+    height: 50px; /* 높이 50px */
     
-    background-color: #3A3A3A; 
-    color: white; 
-    border-radius: 8px; 
+    background-color: #3A3A3A; /* 배경색 */
+    color: white; /* 글자색 */
+    border-radius: 8px; /* "살짝 둥글게" */
     
+    /* JS에서 display: 'flex'로 변경 시 중앙 정렬 */
     align-items: center; 
     justify-content: center;
     
     padding: 10px 20px;
     box-sizing: border-box;
     text-align: center;
-    font-size: 14px; /* ⭐ 폰트 크기 14px로 조절 */
-    /* line-height: 1.4; ⭐ 한 줄을 위해 제거 */
-    z-index: 2000; 
-    /* box-shadow: 0 4px 10px rgba(0,0,0,0.3); ⭐ 그림자 제거 */
+    font-size: 14px; /* 폰트 크기 14px */
+    /* line-height 제거 (한 줄 표시) */
+    z-index: 2000; /* QR 모달보다 위에 표시 */
+    /* box-shadow 제거 (그림자 없음) */
 }
