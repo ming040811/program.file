@@ -278,7 +278,7 @@ body {
 .asset-container::-webkit-scrollbar-button { display: none; }
 
 
-/* ⭐ [추가됨] 아이템 제한 알림 (토스트) */
+/* ⭐ [수정됨] 아이템 제한 알림 (토스트) */
 #limit-toast-notification {
     /* display: none; 은 인라인 스타일로 제어됩니다. */
     position: fixed;
@@ -295,7 +295,7 @@ body {
     border-radius: 8px; /* "살짝 둥글게" */
     
     /* JS에서 display: 'flex'로 변경 시 중앙 정렬 */
-    align-items: center; 
+    align-items: center; /* ⭐ 'align-itemss' -> 'align-items'로 수정됨 */
     justify-content: center;
     
     padding: 10px 20px;
