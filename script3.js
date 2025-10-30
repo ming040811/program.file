@@ -1,4 +1,4 @@
-// index.js (최종 수정 버전 - 경계 제한 재적용)
+// index.js (최종 수정 버전 - 경계 제한 개선)
 
 document.addEventListener('DOMContentLoaded', () => {
     // ❗️ index.html에서 'db' 객체가 초기화되어야 합니다.
@@ -58,12 +58,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const decoListForMobile = storyData[currentScene].decorations.map(deco => {
             const decoWidth = deco.width;
             const decoHeight = deco.height;
+            // 중앙 좌표를 기준으로 정규화합니다.
+            const centerX = deco.x + decoWidth / 2;
+            const centerY = deco.y + decoHeight / 2;
+
             return {
                 id: deco.id,
                 // x_mobile (모바일 세로) = PC의 Y축 정규화 값 
-                x_mobile: (deco.y + decoHeight / 2) / canvasHeight, 
+                x_mobile: centerY / canvasHeight, 
                 // y_mobile (모바일 가로) = PC의 X축 정규화 값 
-                y_mobile: (deco.x + decoWidth / 2) / canvasWidth    
+                y_mobile: centerX / canvasWidth    
             };
         });
         
@@ -142,7 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- 컨트롤러 클릭 처리 함수 ---
+    // --- 컨트롤러 클릭 처리 함수 (생략) ---
     function handleItemClick(id) {
         if (!id) return;
         const isSelected = selectedDecoIds.includes(id);
@@ -161,7 +165,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    // --- 아이템 선택 처리 함수 ---
+    // --- 아이템 선택 처리 함수 (생략) ---
     function selectItems(ids = [], source = 'pc') {
         selectedDecoIds = ids;
         document.querySelectorAll('.decoration-item').forEach(el => {
@@ -172,7 +176,7 @@ document.addEventListener('DOMContentLoaded', () => {
         syncStateToFirestore(); 
     }
 
-    // --- 모바일 좌표계로 아이템 이동 처리 (Firebase 응답 제거 최적화 유지) ---
+    // --- 모바일 좌표계로 아이템 이동 처리 (수정) ---
     function handleItemMove(id, mobileControllerY, mobileControllerX) {
         if (!canvas || !id) return;
         const decoData = storyData[currentScene].decorations.find(d => d.id === id);
@@ -183,8 +187,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const canvasHeight = canvas.offsetHeight;
         
         // 좌표 역변환 (모바일 좌표 -> PC 픽셀 좌표)
-        let newX = (mobileControllerX * canvasWidth) - (decoData.width / 2);
-        let newY = (mobileControllerY * canvasHeight) - (decoData.height / 2);
+        let centerX = mobileControllerX * canvasWidth;
+        let centerY = mobileControllerY * canvasHeight;
+
+        let newX = centerX - (decoData.width / 2);
+        let newY = centerY - (decoData.height / 2);
 
         // 🌟 [핵심 수정]: PC에서 캔버스 경계를 넘지 않도록 강제 적용 (튕김 방지)
         newX = Math.max(0, Math.min(newX, canvasWidth - decoData.width));
@@ -201,7 +208,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // syncStateToFirestore(); 
     }
 
-    // --- 컨트롤러 버튼 조작 처리 함수 ---
+    // --- 컨트롤러 버튼 조작 처리 함수 (생략) ---
     function handleControllerControl(id, action, data) {
         let decoData = storyData[currentScene].decorations.find(d => d.id === id);
         if (!decoData) return;
@@ -256,7 +263,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- (이하 나머지 코드는 이전과 동일합니다) ---
+    // --- (이하 나머지 코드들은 이전과 동일합니다) ---
 
     function updateElementStyle(decoData) {
         const element = document.getElementById(decoData.id);
