@@ -310,3 +310,31 @@ body {
     z-index: 2000; 
     /* 그림자 제거 유지 */
 }
+
+/*
+ * =======================================================
+ * ⭐ [추가됨] QR 코드 닫기 버튼 스타일
+ * =======================================================
+ */
+.qr-close-button {
+    /* 요청하신 색상: 4F99B2, 닫기 글자 색: 흰색 */
+    background-color: #4F99B2;
+    color: white;
+    
+    /* 끝을 조금만 둥글게 (5px -> 8px) */
+    border-radius: 8px; 
+    
+    /* 세로 크기는 유지하고 가로 길이 아주 살짝 더 늘림 (8px 16px -> 8px 20px) */
+    padding: 8px 20px; 
+
+    /* 다른 버튼들과 일관성을 맞춘 기본 스타일 */
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    font-family: 'Malgun Gothic', sans-serif;
+}
+
+.qr-close-button:hover {
+    background-color: #407f94; /* 호버 시 살짝 어두운 색상 */
+}
