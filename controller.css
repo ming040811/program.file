@@ -67,7 +67,7 @@ body {
     width: 70%; /* 100% -> 70% (너비를 줄여서 크기 조절) */
     aspect-ratio: 9 / 16;
     
-    /* ⭐ [수정] 충돌을 일으키던 max-height 제거 */
+    /* ⭐ [수정] 충돌을 일으키던 max-height 제거 (필수!) */
     /* max-height: 30vh; <-- 이 코드가 캔버스를 깨뜨리는 원인이었습니다. */
 
     background-color: #ffffff;
