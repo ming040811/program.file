@@ -35,19 +35,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const qrcodeDiv = document.getElementById('qrcode-container');
 
     // 스토리 데이터
+    // ⭐ [수정됨] 씬 7, 8 추가
     const storyData = {
         '1': { background: '', decorations: [] }, 
         '2': { background: '', decorations: [] },
-        '3': { background: '', decorations: [] }, '4': { background: '', decorations: [] },
-        '5': { background: '', decorations: [] }, '6': { background: '', decorations: [] },
+        '3': { background: '', decorations: [] }, 
+        '4': { background: '', decorations: [] },
+        '5': { background: '', decorations: [] }, 
+        '6': { background: '', decorations: [] },
+        '7': { background: '', decorations: [] }, // 씬 7 추가
+        '8': { background: '', decorations: [] }  // 씬 8 추가
     };
     let currentScene = '1';
     let selectedDecoId = null; 
     let activeDecoId = null; // 컨트롤러 모드에서 현재 조작할 아이템 ID (모바일에서 사용)
 
-    let toastTimer = null; // ⭐ [추가됨] 알림 타이머
+    let toastTimer = null; // ⭐ 알림 타이머
 
-    // ⭐ [추가됨] 알림창 표시 함수
+    // ⭐ 알림창 표시 함수
     function showLimitToast() {
         const toast = document.getElementById('limit-toast-notification');
         if (!toast) return;
@@ -436,7 +441,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!decoData) return;
 
         const step = { rotate: 5, scale: 0.02 }; 
-        // let updated = false; // ⭐ 삭제: 이 로직은 더 이상 필요 없음
 
         if (action === 'nudge') {
             const dx = data.dx || 0;
@@ -500,22 +504,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 return; 
             }
         }
-
-        // ⭐ 삭제: 이 블록이 깜빡임의 원인이었음
-        /*
-        if (updated) {
-            renderScene(currentScene); 
-        }
-        */
     }
 
     // --- 4. 장식 아이템 추가 이벤트 핸들러 (PC에서만 작동) ---
     document.querySelectorAll('.asset-item[data-type="decoration"]').forEach(item => {
         item.addEventListener('click', () => {
             if (storyData[currentScene].decorations.length >= 3) {
-                // alert() 대신 console.warn 사용
-                // console.warn("장식 아이템은 최대 3개까지만 추가할 수 있습니다."); // ❗️ 기존 코드
-
                 // ⭐ [수정됨] 알림창 표시 함수 호출
                 showLimitToast(); 
                 return;
