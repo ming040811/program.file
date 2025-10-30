@@ -21,14 +21,14 @@ body {
     flex-direction: column;
     align-items: center;
     
-    /* ⭐ [레이아웃 수정] center -> flex-start (UI를 위로 당김) */
+    /* [레이아웃 수정] center -> flex-start (UI를 위로 당김) */
     justify-content: flex-start;
     
     height: 100vh;
     box-sizing: border-box;
     overflow: hidden;
 
-    /* ⭐ [레이아웃 수정] vh 단위로 변경 (버튼 잘림 방지) */
+    /* [레이아웃 수정] vh 단위로 변경 (버튼 잘림 방지) */
     padding-top: 2vh;
     padding-bottom: 2vh;
     position: relative;
@@ -42,12 +42,12 @@ body {
     max-width: 400px;
     
     height: 100%;
-    /* ⭐ [레이아웃 수정] body padding을 뺀 높이 */
+    /* [레이아웃 수정] body padding을 뺀 높이 */
     max-height: calc(100vh - 4vh); 
     
-    /* ⭐ [레이아웃 수정] center -> flex-start (UI를 위로 당김) */
+    /* [레이아웃 수정] center -> flex-start (UI를 위로 당김) */
     justify-content: flex-start; 
-    /* ⭐ [레이아웃 수정] 캔버스와 버튼 사이 간격 증가 */
+    /* [레이아웃 수정] 캔버스와 버튼 사이 간격 증가 */
     gap: 15px; 
 
     position: relative;
@@ -57,9 +57,9 @@ body {
 .main-canvas-frame {
     position: relative;
     
-    /* ⭐ [레이아웃 수정] height: auto, max-height: 60vh로 변경 (버튼 잘림 방지) */
-    height: auto; 
-    max-height: 60vh; 
+    /* ⭐ [수정] 캔버스 높이 원래대로 복구 (auto -> 70%) */
+    height: 70%; 
+    max-height: 560px; 
     aspect-ratio: 9 / 16;
 
     background-color: #ffffff;
@@ -108,7 +108,7 @@ body {
     font-size: 1px;
     cursor: grab;
     
-    /* ⭐ [성능 수정] top, left 애니메이션 제거 (랙/느림 문제 해결) */
+    /* [성능 수정] top, left 애니메이션 제거 (랙/느림 문제 해결) */
     transition: background-color 0.2s, opacity 0.3s, box-shadow 0.2s;
     
     opacity: 0;
