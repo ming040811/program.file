@@ -60,10 +60,10 @@ body {
     position: relative;
     
     /*
-     * ⭐ [수정] 캔버스 크기 조정
-     * 'width' (너비)를 95%에서 92%로 수정
+     * ⭐ [수정] 캔버스 크기 키우기
+     * 'width' (너비)를 80%에서 90%로 수정
      */
-    width: 80%; /* 95% -> 92% (줄이기) */
+    width: 90%; /* 80% -> 90% */
     aspect-ratio: 9 / 16;
     
     /* [수정] 충돌을 일으키던 max-height 제거 (필수!) */
@@ -130,7 +130,7 @@ body {
 
 .bottom-controls {
     /* [수정] .container가 90%가 되었으므로, 버튼도 100%로 채움 */
-    width: 90%;
+    width: 100%;
     display: flex;
     flex-direction: row;
     justify-content: space-around;
@@ -312,7 +312,3 @@ body {
     .control-btn { width: 30px; height: 30px; font-size: 20px; }
     .control-btn span { transform: none; }
 }
-
-
-
-
