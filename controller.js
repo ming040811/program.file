@@ -81,7 +81,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 // 2. 새 목록에 있는 아이템의 ID만 Set으로 만듭니다.
                 const newDecoIds = new Set(currentDecoList.map(deco => deco.id));
                 
-                // 3. 로컬 selectedDecoIds를 "정리"합니다. (유령 ID 제거)
+                // 3. 로컬 selectedDecoIds를 "정리"합니다.
+                //    (새 목록에 없는 "유령" ID는 제거)
                 selectedDecoIds = selectedDecoIds.filter(id => newDecoIds.has(id));
 
                 // 4. 정리된 상태로 UI를 업데이트합니다.
