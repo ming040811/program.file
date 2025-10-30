@@ -200,7 +200,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     frameWidth: frameWidth,
                     frameHeight: frameHeight,
                     isDragging: false, 
-                    isThrottled: false // [⭐️ NEW] 30ms 스로틀 플래그
+                    isThrottled: false, // 30ms 스로틀 플래그
+                    // [⭐️ NEW] touchend에서 마지막 명령을 보내기 위한 변수
+                    finalNormX: -1, 
+                    finalNormY: -1 
                 });
 
                 if (selectedDecoIds.includes(decoId)) {
@@ -242,9 +245,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 dragData.lastX = touch.clientX;
                 dragData.lastY = touch.clientY;
 
-                // 2. [⭐️ NEW] 30ms 스로틀링
+                // 2. PC로 보낼 좌표 계산
+                const mobileNormX = newPadLeft / frameWidth;
+                const mobileNormY = newPadTop / frameHeight;
+                const logic_Site_TB = 1.0 - mobileNormX;
+                const logic_Site_LR = mobileNormY;
+
+                // 3. [⭐️ NEW] 'touchend'에서 사용할 최종 좌표 저장
+                dragData.finalNormX = logic_Site_TB;
+                dragData.finalNormY = logic_Site_LR;
+
+                // 4. [⭐️ NEW] 30ms 스로틀링
                 if (dragData.isThrottled) {
-                    continue; // 30ms가 지나지 않았으면 전송 안 함
+                    continue; 
                 }
                 dragData.isThrottled = true;
                 setTimeout(() => {
@@ -253,13 +266,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }, 30); // 30ms (사이트가 부드럽게 움직이도록)
 
-                // 3. PC로 보낼 좌표 계산
-                const mobileNormX = newPadLeft / frameWidth;
-                const mobileNormY = newPadTop / frameHeight;
-                const logic_Site_TB = 1.0 - mobileNormX;
-                const logic_Site_LR = mobileNormY;
-                
-                // 4. [⭐️ NEW] PC로 'control_one' (move) 명령 전송
+                // 5. [⭐️ NEW] PC로 'control_one' (move) 명령 전송
                 sendCommandToFirestore('control_one', { 
                     id: decoId, 
                     action: 'move',
@@ -270,7 +277,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }, { passive: false }); 
 
-    // [⭐️ 수정] 'touchend'는 '롤백 방지 타이머'를 설정
+    // [⭐️ 수정] 'touchend'는 '롤백 방지 타이머' + '최종 위치 전송'
     const touchEndOrCancel = (e) => {
         for (const touch of e.changedTouches) {
             const dragData = activeTouches.get(touch.identifier);
@@ -279,7 +286,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 dragData.pad.classList.remove('active'); 
 
                 if (dragData.isDragging === true) {
-                    // [⭐️ NEW] 드래그가 끝났으므로, '무시 시간' 시작
+                    // [⭐️ 1. 롤백 방지 타이머]
                     if (justReleasedTimer) {
                         clearTimeout(justReleasedTimer);
                     }
@@ -289,6 +296,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         justReleasedPadId = null;
                         justReleasedTimer = null;
                     }, 400); // 400ms (0.4초)
+
+                    // [⭐️ 2. 최종 위치 1회 전송 (보험용)]
+                    if (dragData.finalNormX !== -1) {
+                         sendCommandToFirestore('control_one', { 
+                            id: dragData.decoId, 
+                            action: 'move',
+                            x_mobile: dragData.finalNormX, 
+                            y_mobile: dragData.finalNormY  
+                        });
+                    }
 
                 } else {
                     // [탭] 드래그되지 않았으므로 'item_click' 전송
