@@ -37,20 +37,14 @@ document.addEventListener('DOMContentLoaded', () => {
     async function sendCommandToFirestore(action, data = {}) {
         if (!SESSION_ID) return;
 
-        // 'select_multi' 외의 액션은 선택된 아이템이 있어야 함
-        if (action !== 'select_multi' && selectedDecoIds.length === 0) {
-             // 'control_one' (이동)은 예외로 둬야 함 (activeTouches 기반)
-             if(action !== 'control_one') {
-                 console.warn("No item selected for action:", action);
-                 return;
-             }
+        if (action !== 'select_multi' && action !== 'control_one' && selectedDecoIds.length === 0) {
+             console.warn("No item selected for action:", action);
+             return;
         }
         
-        // 'control_one' (이동)은 data에 id가 포함되어 옴
-        // 'control_multi', 'delete_multi'는 selectedDecoIds를 사용
         const commandData = {
             ...data,
-            ids: data.ids || selectedDecoIds // 데이터에 ids가 없으면 전역 selectedDecoIds 사용
+            ids: data.ids || selectedDecoIds 
         };
 
         const command = {
@@ -60,7 +54,6 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         
         try {
-            // command 필드를 덮어씁니다.
             await CONTROLLER_REF.set({ command: command }, { merge: true });
         } catch (error) {
             console.error("Error sending command to Firestore:", error);
@@ -77,7 +70,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentDecoList = state.decoList || [];
                 selectedDecoIds = state.selectedIds || [];
 
-                // 상태 수신 후 즉시 터치패드 UI 업데이트
                 updateTouchPads();
 
             } else {
@@ -98,6 +90,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateTouchPads() {
         touchPadsWrapper.innerHTML = ''; 
 
+        if (mainCanvasFrame.offsetWidth === 0) return; // 프레임이 그려지기 전이면 중단
+
         const frameWidth = mainCanvasFrame.offsetWidth;
         const frameHeight = mainCanvasFrame.offsetHeight;
 
@@ -116,7 +110,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             pad.style.left = `${pixelX}px`;
             pad.style.top = `${pixelY}px`;
-            pad.style.opacity = '1';
+            
+            // 패드가 활성화 (PC에서 리스트를 받음)될 때 보이도록
+            setTimeout(() => { pad.style.opacity = '1'; }, 10); 
 
             if (selectedDecoIds.includes(deco.id)) {
                 pad.classList.add('selected');
@@ -130,30 +126,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 const decoId = deco.id; 
                 const isSelected = selectedDecoIds.includes(decoId);
 
-                // (멀티 셀렉트 로직은 기존과 동일)
-                if (isSelected) {
-                    selectedDecoIds = selectedDecoIds.filter(id => id !== decoId);
-                } else {
-                    if (selectedDecoIds.length < 3) { // 최대 3개
-                        selectedDecoIds.push(decoId);
+                if (e.metaKey || e.ctrlKey) { // 다중 선택 (Ctrl/Cmd + 클릭)
+                    if (isSelected) {
+                        selectedDecoIds = selectedDecoIds.filter(id => id !== decoId);
                     } else {
-                        selectedDecoIds.shift(); 
                         selectedDecoIds.push(decoId);
+                    }
+                } else { // 단일 선택
+                    if (isSelected && selectedDecoIds.length === 1) {
+                        selectedDecoIds = []; // 이미 선택된거 다시 누르면 해제
+                    } else {
+                        selectedDecoIds = [decoId]; // 새로 선택
                     }
                 }
                 
-                // ❗️ [수정됨] postMessage -> sendCommandToFirestore
                 sendCommandToFirestore('select_multi', { ids: selectedDecoIds });
                 
-                // (참고: PC가 상태를 다시 보내주므로 여기서 updateTouchPads()를 호출할 필요는 없지만,
-                // 즉각적인 반응성을 위해 로컬에서 바로 갱신)
+                // 로컬 UI 즉시 업데이트
                 updateTouchPads(); 
             });
 
             touchPadsWrapper.appendChild(pad);
         });
         
-        // --- 버튼 활성화/비활성화 (기존과 동일) ---
+        // --- 버튼 활성화/비활성화 ---
         const isSelected = selectedDecoIds.length > 0;
         document.querySelectorAll('.control-btn').forEach(btn => {
             btn.disabled = !isSelected;
@@ -174,13 +170,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const targetPad = touch.target.closest('.touch-pad');
             
             if (targetPad) {
+                e.preventDefault(); // 터치패드 영역에서만 스크롤 방지
                 const decoId = targetPad.dataset.id;
                 
-                // ⭐ [수정됨] 드래그는 '선택된' 아이템이 아니어도 가능하도록 함
-                // (단, 드래그 시작 시 해당 아이템을 선택 상태로 만들 수 있음 - 선택사항)
-                // if (selectedDecoIds.includes(decoId)) { // 이 검사 제거
-                
-                // 터치 ID를 키로 사용하여 정보 저장
                 activeTouches.set(touch.identifier, {
                     pad: targetPad,
                     decoId: decoId,
@@ -189,14 +181,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     frameWidth: frameWidth,
                     frameHeight: frameHeight
                 });
-                targetPad.classList.add('active'); // 드래그 중임을 시각적으로 표시
-                // }
+                targetPad.classList.add('active'); 
             }
         }
-    }, { passive: false });
+    }, { passive: false }); // 스크롤 방지를 위해 passive: false 설정
 
     touchPadsWrapper.addEventListener('touchmove', (e) => {
-        e.preventDefault(); 
+        if (activeTouches.size > 0) {
+             e.preventDefault(); // 드래그 중 스크롤 방지
+        }
 
         for (const touch of e.changedTouches) {
             const dragData = activeTouches.get(touch.identifier);
@@ -213,10 +206,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 let newPadLeft = currentPadLeft + dx;
                 let newPadTop = currentPadTop + dy;
 
-                // (경계 처리 로직은 기존과 동일)
-                const padHalf = pad.offsetWidth / 2;
-                newPadLeft = Math.max(padHalf, Math.min(newPadLeft, frameWidth - padHalf));
-                newPadTop = Math.max(padHalf, Math.min(newPadTop, frameHeight - padHalf));
+                // (경계 처리 로직 - 중심점 기준)
+                newPadLeft = Math.max(0, Math.min(newPadLeft, frameWidth));
+                newPadTop = Math.max(0, Math.min(newPadTop, frameHeight));
 
                 pad.style.left = `${newPadLeft}px`;
                 pad.style.top = `${newPadTop}px`;
@@ -233,11 +225,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     deco.y_mobile = newNormY; 
                 }
                 
-                // ❗️ [수정됨] postMessage -> sendCommandToFirestore
-                // PC가 90도 회전해서 처리할 수 있도록 모바일의 x, y를 그대로 보냄
                 sendCommandToFirestore('control_one', { 
                     id: decoId, 
-                    action: 'move', // 'move' 액션은 PC의 'control_one' 핸들러가 인식
+                    action: 'move',
                     x_mobile: newNormX, 
                     y_mobile: newNormY 
                 });
@@ -252,7 +242,7 @@ document.addEventListener('DOMContentLoaded', () => {
         for (const touch of e.changedTouches) {
             const dragData = activeTouches.get(touch.identifier);
             if(dragData) {
-                dragData.pad.classList.remove('active'); // 시각적 표시 제거
+                dragData.pad.classList.remove('active'); 
             }
             activeTouches.delete(touch.identifier);
         }
@@ -269,9 +259,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const action = btn.dataset.action;
             const direction = btn.dataset.direction;
             
-            // ❗️ [수정됨] postMessage -> sendCommandToFirestore
             sendCommandToFirestore('control_multi', { 
-                // ids: selectedDecoIds (자동 포함됨)
                 action: action, 
                 direction: direction 
             });
@@ -282,22 +270,13 @@ document.addEventListener('DOMContentLoaded', () => {
     deleteButton.addEventListener('click', () => {
         if (selectedDecoIds.length === 0 || deleteButton.disabled) return;
         
-        // ❗️ [수정됨] postMessage -> sendCommandToFirestore
-        sendCommandToFirestore('delete_multi', { 
-            /* ids: selectedDecoIds (자동 포함됨) */ 
-        });
+        sendCommandToFirestore('delete_multi');
         
         selectedDecoIds = []; 
         updateTouchPads();
     });
-
-    // --- 8. 메시지 수신 (제거) ---
-    // window.addEventListener('message', ...); (제거)
-
-    // --- 9. 초기화 ---
-    // window.onload = ... (제거)
     
-    // PC 상태 수신 시작
+    // --- 8. 초기화 ---
     listenForPCState();
 
     // 리사이즈 이벤트
