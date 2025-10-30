@@ -37,6 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function sendCommandToFirestore(action, data = {}) {
         if (!SESSION_ID) return;
 
+        // [수정] control_one 액션은 selectedDecoIds가 없어도 전송 허용
         if (action !== 'select_multi' && action !== 'control_one' && selectedDecoIds.length === 0) {
              console.warn("No item selected for action:", action);
              return;
@@ -44,8 +45,14 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const commandData = {
             ...data,
-            ids: data.ids || selectedDecoIds 
+            // [수정] control_one은 data.id를 사용하고, 나머지는 selectedDecoIds를 사용
+            ids: action === 'control_one' ? (data.id ? [data.id] : []) : (data.ids || selectedDecoIds)
         };
+
+        // [수정] control_one일 경우 data.id를 commandData.id로 명확히 전달
+        if (action === 'control_one') {
+            commandData.id = data.id;
+        }
 
         const command = {
             action: action,
@@ -85,77 +92,121 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // =========================================================================
-
-    // --- 3. 터치패드 UI 업데이트 ---
-    function updateTouchPads() {
-        touchPadsWrapper.innerHTML = ''; 
-
-        if (mainCanvasFrame.offsetWidth === 0) return; // 프레임이 그려지기 전이면 중단
-
-        const frameWidth = mainCanvasFrame.offsetWidth;
-        const frameHeight = mainCanvasFrame.offsetHeight;
-
-        currentDecoList.forEach((deco, index) => {
-            const pad = document.createElement('button');
-            pad.classList.add('touch-pad');
-            pad.id = `touch-pad-${deco.id}`;
-            pad.dataset.id = deco.id;
-            pad.title = `아이템 ${index + 1} 선택 및 이동`;
-
-            // ⭐ [핵심] 90도 회전된 좌표 적용
-            // 모바일 X (가로) = PC의 Y 좌표 (state.x_mobile)
-            const pixelX = deco.x_mobile * frameWidth;
-            // 모바일 Y (세로) = PC의 X 좌표 (state.y_mobile)
-            const pixelY = deco.y_mobile * frameHeight;
-
-            pad.style.left = `${pixelX}px`;
-            pad.style.top = `${pixelY}px`;
-            
-            // 패드가 활성화 (PC에서 리스트를 받음)될 때 보이도록
-            setTimeout(() => { pad.style.opacity = '1'; }, 10); 
-
-            if (selectedDecoIds.includes(deco.id)) {
-                pad.classList.add('selected');
-            }
-
-            // --- 4. 클릭 (선택/해제) 이벤트 리스너 ---
-            pad.addEventListener('click', (e) => {
-                e.stopPropagation();
-                e.preventDefault(); 
-                
-                const decoId = deco.id; 
-                const isSelected = selectedDecoIds.includes(decoId);
-
-                if (e.metaKey || e.ctrlKey) { // 다중 선택 (Ctrl/Cmd + 클릭)
-                    if (isSelected) {
-                        selectedDecoIds = selectedDecoIds.filter(id => id !== decoId);
-                    } else {
-                        selectedDecoIds.push(decoId);
-                    }
-                } else { // 단일 선택
-                    if (isSelected && selectedDecoIds.length === 1) {
-                        selectedDecoIds = []; // 이미 선택된거 다시 누르면 해제
-                    } else {
-                        selectedDecoIds = [decoId]; // 새로 선택
-                    }
-                }
-                
-                sendCommandToFirestore('select_multi', { ids: selectedDecoIds });
-                
-                // 로컬 UI 즉시 업데이트
-                updateTouchPads(); 
-            });
-
-            touchPadsWrapper.appendChild(pad);
-        });
-        
-        // --- 버튼 활성화/비활성화 ---
+    // ⭐ 🚨 [신규 추가] 하단 버튼 상태 업데이트 로직 (분리) 🚨 ⭐
+    // =========================================================================
+    function updateButtonDisabledState() {
         const isSelected = selectedDecoIds.length > 0;
         document.querySelectorAll('.control-btn').forEach(btn => {
             btn.disabled = !isSelected;
         });
         deleteButton.disabled = !isSelected;
         controlGroupWrapper.classList.toggle('active', isSelected);
+    }
+
+
+    // =========================================================================
+    // ⭐ 🚨 [전면 수정] DOM Reconciliation (비교/조정) 방식으로 수정된 함수 🚨 ⭐
+    // =========================================================================
+    function updateTouchPads() {
+        if (mainCanvasFrame.offsetWidth === 0) return; // 프레임이 그려지기 전이면 중단
+
+        const frameWidth = mainCanvasFrame.offsetWidth;
+        const frameHeight = mainCanvasFrame.offsetHeight;
+
+        // 현재 드래그 중인 ID 셋 (성능을 위해 Set 사용)
+        const draggingIds = new Set(Array.from(activeTouches.values()).map(data => data.decoId));
+
+        // 현재 DOM에 있는 패드들을 Map으로 만듦 (빠른 탐색용)
+        const existingPads = new Map();
+        touchPadsWrapper.querySelectorAll('.touch-pad').forEach(pad => {
+            existingPads.set(pad.dataset.id, pad);
+        });
+
+        // --- 1. currentDecoList (새 상태)를 기준으로 DOM 업데이트 및 추가 ---
+        currentDecoList.forEach((deco, index) => {
+            let pad = existingPads.get(deco.id);
+
+            // [핵심] 90도 회전된 좌표 적용
+            const pixelX = deco.x_mobile * frameWidth;
+            const pixelY = deco.y_mobile * frameHeight;
+
+            if (pad) {
+                // 1a. 기존 패드 업데이트
+                existingPads.delete(deco.id); // 처리된 패드는 맵에서 제거
+
+                // ❗️ [핵심 수정] 드래그 중인 패드는 onSnapshot(PC상태)의 좌표를 무시함
+                if (!draggingIds.has(deco.id)) {
+                    pad.style.left = `${pixelX}px`;
+                    pad.style.top = `${pixelY}px`;
+                }
+                
+                // 선택 상태는 항상 업데이트
+                pad.classList.toggle('selected', selectedDecoIds.includes(deco.id));
+
+            } else {
+                // 1b. 새 패드 생성
+                pad = document.createElement('button');
+                pad.classList.add('touch-pad');
+                pad.id = `touch-pad-${deco.id}`;
+                pad.dataset.id = deco.id;
+                pad.title = `아이템 ${index + 1} 선택 및 이동`;
+
+                pad.style.left = `${pixelX}px`;
+                pad.style.top = `${pixelY}px`;
+                
+                if (selectedDecoIds.includes(deco.id)) {
+                    pad.classList.add('selected');
+                }
+
+                // --- 4. 클릭 (선택/해제) 이벤트 리스너 (새 패드에만 추가) ---
+                pad.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    e.preventDefault(); 
+                    
+                    const decoId = deco.id; 
+                    const isSelected = selectedDecoIds.includes(decoId);
+
+                    if (e.metaKey || e.ctrlKey) { // 다중 선택
+                        if (isSelected) {
+                            selectedDecoIds = selectedDecoIds.filter(id => id !== decoId);
+                        } else {
+                            selectedDecoIds.push(decoId);
+                        }
+                    } else { // 단일 선택
+                        if (isSelected && selectedDecoIds.length === 1) {
+                            selectedDecoIds = []; // 해제
+                        } else {
+                            selectedDecoIds = [decoId]; // 선택
+                        }
+                    }
+                    
+                    sendCommandToFirestore('select_multi', { ids: selectedDecoIds });
+                    
+                    // [성능 수정] updateTouchPads() 대신 가벼운 로컬 UI 업데이트
+                    // 1. 모든 패드의 'selected' 클래스만 업데이트
+                    document.querySelectorAll('.touch-pad').forEach(p => {
+                        p.classList.toggle('selected', selectedDecoIds.includes(p.dataset.id));
+                    });
+                    // 2. 하단 버튼 상태 업데이트
+                    updateButtonDisabledState();
+                });
+
+                touchPadsWrapper.appendChild(pad);
+                
+                // 패드가 활성화될 때 보이도록
+                setTimeout(() => { pad.style.opacity = '1'; }, 10); 
+            }
+        });
+
+        // --- 2. 맵에 남아있는 패드 (stale) DOM에서 삭제 ---
+        existingPads.forEach(pad => {
+            pad.style.opacity = '0'; // 사라지는 애니메이션
+            setTimeout(() => { pad.remove(); }, 300); // 0.3초 후 DOM에서 제거
+        });
+
+        // --- 3. 버튼 활성화/비활성화 ---
+        updateButtonDisabledState();
+
     } // --- updateTouchPads 끝 ---
 
 
@@ -273,7 +324,12 @@ document.addEventListener('DOMContentLoaded', () => {
         sendCommandToFirestore('delete_multi');
         
         selectedDecoIds = []; 
-        updateTouchPads();
+        
+        // [수정] updateTouchPads() 대신 가벼운 로컬 UI 업데이트
+        document.querySelectorAll('.touch-pad.selected').forEach(pad => {
+            pad.classList.remove('selected');
+        });
+        updateButtonDisabledState();
     });
     
     // --- 8. 초기화 ---
