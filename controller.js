@@ -216,7 +216,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // [⭐️ 수정] 'touchmove'는 PC로 30ms마다 명령을 다시 전송
     touchPadsWrapper.addEventListener('touchmove', (e) => {
         if (activeTouches.size > 0) {
-             e.preventDefault(); 
+              e.preventDefault(); 
         }
 
         for (const touch of e.changedTouches) {
@@ -271,7 +271,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     id: decoId, 
                     action: 'move',
                     x_mobile: logic_Site_TB, 
-                    y_mobile: logic_Site_LR  
+                    y_mobile: logic_Site_LR 
                 });
             }
         }
@@ -286,25 +286,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 dragData.pad.classList.remove('active'); 
 
                 if (dragData.isDragging === true) {
-                    // [⭐️ 1. 롤백 방지 타이머]
+                    // [⭐️ 1. 롤백 방지 타이머: 400ms -> 800ms로 증가]
                     if (justReleasedTimer) {
                         clearTimeout(justReleasedTimer);
                     }
                     justReleasedPadId = dragData.decoId;
                     
+                    // 🚨 롤백 방지 대기 시간을 800ms로 늘립니다.
                     justReleasedTimer = setTimeout(() => {
                         justReleasedPadId = null;
                         justReleasedTimer = null;
-                    }, 400); // 400ms (0.4초)
+                    }, 800); // 800ms (0.8초)
 
                     // [⭐️ 2. 최종 위치 1회 전송 (보험용)]
                     if (dragData.finalNormX !== -1) {
                          sendCommandToFirestore('control_one', { 
-                            id: dragData.decoId, 
-                            action: 'move',
-                            x_mobile: dragData.finalNormX, 
-                            y_mobile: dragData.finalNormY  
-                        });
+                             id: dragData.decoId, 
+                             action: 'move',
+                             x_mobile: dragData.finalNormX, 
+                             y_mobile: dragData.finalNormY 
+                         });
                     }
 
                 } else {
