@@ -314,8 +314,8 @@ body {
 /* 🚀 [최종 크기: 35px, !important 유지] 큐알코드 닫기 버튼 스타일 */
 .qrcode-close-button {
     /* 크기 조정: 35px */
-    height: 40px !important; 
-    width: 83px !important; /* 가로 길이 조정 */
+    height: 45px !important; 
+    width: 88px !important; /* 가로 길이 조정 */
     
     background-color: #4F99B2 !important; 
     color: white !important; 
@@ -324,7 +324,7 @@ body {
     /* 폰트 크기 조정: 14px */
     border: none !important;
     cursor: pointer !important;
-    font-size: 18px !important; 
+    font-size: 20px !important; 
     font-weight: bold !important;
     
     display: flex !important;
@@ -338,4 +338,5 @@ body {
 .qrcode-close-button:hover {
     background-color: #63adc7 !important; /* 호버 효과 */
 }
+
 
