@@ -6,8 +6,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- 1. 모드 판별, 기본 변수 및 세션 설정 ---
-    // (이 파일은 항상 PC 모드이므로 isControllerMode 확인 제거)
-
     let SESSION_ID = new URLSearchParams(window.location.search).get('session');
     if (!SESSION_ID) {
         SESSION_ID = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
@@ -37,11 +35,10 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     let currentScene = '1';
     
-    // ⭐ [수정됨] PC는 싱글 셀렉트 유지
     let selectedDecoId = null; 
     let toastTimer = null;
 
-    // --- 알림창 표시 함수 (유지) ---
+    // --- 알림창 표시 함수 ---
     function showLimitToast() {
         const toast = document.getElementById('limit-toast-notification');
         if (!toast) return;
@@ -64,20 +61,22 @@ document.addEventListener('DOMContentLoaded', () => {
         const canvasWidth = canvas.offsetWidth;
         const canvasHeight = canvas.offsetHeight;
 
-        // ⭐ [수정됨] 좌표 90도 회전 및 정규화
+        // ⭐ [핵심] 좌표 90도 회전 및 정규화
         const decoListForMobile = storyData[currentScene].decorations.map(deco => {
+            const decoElement = document.getElementById(deco.id) || {};
+            const decoRect = decoElement.getBoundingClientRect ? decoElement.getBoundingClientRect() : { width: deco.width, height: deco.height };
+
             return {
                 id: deco.id,
                 // 모바일 X (가로) = PC Y (세로)
-                x_mobile: deco.y / canvasHeight,
+                x_mobile: (deco.y + decoRect.height / 2) / canvasHeight,
                 // 모바일 Y (세로) = PC X (가로)
-                y_mobile: deco.x / canvasWidth
+                y_mobile: (deco.x + decoRect.width / 2) / canvasWidth
             };
         });
         
         const state = {
             scene: currentScene,
-            // ⭐ [수정됨] 모바일은 배열을 기대하므로 배열로 전송
             selectedIds: selectedDecoId ? [selectedDecoId] : [],
             decoList: decoListForMobile,
             timestamp: firebase.firestore.FieldValue.serverTimestamp()
@@ -103,13 +102,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (command.timestamp && command.timestamp.toMillis() > lastCommandTimestamp) {
                     lastCommandTimestamp = command.timestamp.toMillis();
                     
-                    // ⭐ [수정됨] 새로운 컨트롤러 명령 체계에 맞게 분기
                     const action = command.action;
                     const data = command.data || {};
 
                     if (action === 'select_multi') {
-                        // PC는 싱글 셀렉트이므로, 모바일에서 선택한 것 중 첫 번째 아이템을 선택
-                        selectItem(data.ids ? data.ids[0] : null);
+                        // PC는 싱글 셀렉트이므로, 모바일에서 선택한 것 중 마지막 아이템을 선택
+                        selectItem(data.ids ? data.ids[data.ids.length - 1] : null);
 
                     } else if (action === 'control_one') {
                         // 개별 아이템 이동 (터치패드 드래그)
@@ -118,14 +116,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     } else if (action === 'control_multi') {
                         // 다중 아이템 조작 (버튼)
                         data.ids.forEach(id => {
-                            // 기존 조작 함수 재활용
                             handleControllerControl(id, data.action, { direction: data.direction });
                         });
 
                     } else if (action === 'delete_multi') {
                         // 다중 아이템 삭제 (버튼)
                         data.ids.forEach(id => {
-                            // 기존 삭제 함수 재활용
                             handleControllerControl(id, 'delete');
                         });
                     }
@@ -167,7 +163,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     height: 256
                 });
             }
-            // 모바일 연결 대기를 위해 현재 상태 즉시 동기화
             syncStateToFirestore(); 
         });
     }
@@ -184,87 +179,62 @@ document.addEventListener('DOMContentLoaded', () => {
                 selectedDecoId = id;
             }
         }
-        syncStateToFirestore(); // 상태 변경 시 컨트롤러에 동기화
+        syncStateToFirestore(); 
     }
 
     // --- [신규] 모바일 좌표계(90도 회전)로 아이템 이동 처리 ---
     function handleItemMove(id, mobileX, mobileY) {
         if (!canvas || !id) return;
         const decoData = storyData[currentScene].decorations.find(d => d.id === id);
-        if (!decoData) return;
+        const element = document.getElementById(id);
+        if (!decoData || !element) return;
 
         const canvasWidth = canvas.offsetWidth;
         const canvasHeight = canvas.offsetHeight;
+        const decoRect = element.getBoundingClientRect();
 
-        // ⭐ [핵심] 좌표 90도 회전 적용 및 비정규화
+        // ⭐ [핵심] 좌표 90도 회전 적용 (중심점 기준)
         // PC X (가로) = 모바일 Y (세로)
-        decoData.x = mobileY * canvasWidth;
+        decoData.x = (mobileY * canvasWidth) - (decoRect.width / 2);
         // PC Y (세로) = 모바일 X (가로)
-        decoData.y = mobileX * canvasHeight;
+        decoData.y = (mobileX * canvasHeight) - (decoRect.height / 2);
 
-        // 경량 DOM 업데이트
         updateElementStyle(decoData);
         
-        // 썸네일/동기화 (조작이므로 즉시)
         syncStateToFirestore();
         updateThumbnail(currentScene);
     }
 
-    // --- [수정됨] 'nudge' 대신 'move'로 변경 (기존 조작 함수) ---
-    // (이 함수는 이제 모바일의 버튼 클릭 또는 PC의 직접 조작 시에만 사용됨)
+    // --- [수정] 컨트롤러 버튼 조작 처리 함수 ---
     function handleControllerControl(id, action, data) {
-        let decoData;
-        
-        // 'select'는 'select_multi'로 대체되었으므로 제거
-        // if (action === 'select') { ... }
-
-        if (id && selectedDecoId !== id) {
-             selectItem(id);
-        }
-        
-        // ⭐ [수정] id를 기준으로 데이터를 찾도록 변경
-        decoData = storyData[currentScene].decorations.find(d => d.id === id);
-        if (!decoData) {
-            // 만약 id로 못찾으면(멀티 컨트롤시) 기존 selectedId로 한번 더 시도
-            decoData = storyData[currentScene].decorations.find(d => d.id === selectedDecoId);
-            if (!decoData) return;
-        }
+        let decoData = storyData[currentScene].decorations.find(d => d.id === id);
+        if (!decoData) return;
 
         const step = { rotate: 5, scale: 0.02 }; 
-
-        // 'nudge' 액션은 'control_one'(handleItemMove)으로 대체됨
-        // if (action === 'nudge') { ... } 
         
         if (action === 'rotate') {
             const direction = data.direction;
             if (direction === 'LEFT') { decoData.rotation -= step.rotate; }
             else if (direction === 'RIGHT') { decoData.rotation += step.rotate; }
-            updateElementStyle(decoData);
-            syncStateToFirestore();
-            updateThumbnail(currentScene);
             
         } else if (action === 'scale') {
             const direction = data.direction;
             const factor = 1 + (direction === 'UP' ? step.scale : -step.scale);
             
-            if (decoData.width * factor > 20 && decoData.height * factor > 20) {
-                const deltaWidth = (decoData.width * factor) - decoData.width;
-                const deltaHeight = (decoData.height * factor) - decoData.height;
+            const element = document.getElementById(id);
+            const decoRect = element ? element.getBoundingClientRect() : { width: decoData.width, height: decoData.height };
+            
+            if (decoRect.width * factor > 20 && decoRect.height * factor > 20) {
+                const deltaWidth = (decoRect.width * factor) - decoRect.width;
+                const deltaHeight = (decoRect.height * factor) - decoRect.height;
                 
                 decoData.width *= factor;
                 decoData.height *= factor;
                 decoData.x -= deltaWidth / 2;
                 decoData.y -= deltaHeight / 2;
-                
-                updateElementStyle(decoData);
-                syncStateToFirestore();
-                updateThumbnail(currentScene);
             }
         } else if (action === 'flip') {
             decoData.scaleX *= -1;
-            updateElementStyle(decoData);
-            syncStateToFirestore();
-            updateThumbnail(currentScene);
 
         } else if (action === 'delete') {
             const index = storyData[currentScene].decorations.findIndex(d => d.id === id);
@@ -273,22 +243,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 const element = document.getElementById(id);
                 if (element) element.remove();
                 
-                // ⭐ [수정] 삭제된 아이템이 현재 선택된 아이템이면 선택 해제
                 if (selectedDecoId === id) {
-                    selectItem(null); // 삭제 후 선택 해제 및 동기화 (즉시 실행)
+                    selectItem(null); 
                 } else {
-                    syncStateToFirestore(); // (선택은 유지하고) 동기화만
+                    syncStateToFirestore(); 
                 }
-                updateThumbnail(currentScene); // 썸네일 즉시 업데이트
+                updateThumbnail(currentScene); 
                 return; 
             }
         }
+
+        // 공통 업데이트
+        updateElementStyle(decoData);
+        syncStateToFirestore();
+        updateThumbnail(currentScene);
     }
 
-
-    // --- (이하 나머지 코드는 기존 script3.js와 거의 동일) ---
-
-    // --- 2-1. 아이템 스타일만 가볍게 업데이트하는 함수 ---
+    // --- 아이템 스타일만 가볍게 업데이트하는 함수 ---
     function updateElementStyle(decoData) {
         const element = document.getElementById(decoData.id);
         if (!element) return;
@@ -303,7 +274,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- 4. 장식 아이템 추가 이벤트 핸들러 ---
+    // --- 장식 아이템 추가 이벤트 핸들러 ---
     document.querySelectorAll('.asset-item[data-type="decoration"]').forEach(item => {
         item.addEventListener('click', () => {
             if (storyData[currentScene].decorations.length >= 3) {
@@ -328,12 +299,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 scaleX: 1,
             };
             storyData[currentScene].decorations.push(newDeco);
-            renderScene(currentScene); // ❗️ 아이템 추가 시에는 전체 렌더링
+            renderScene(currentScene); 
             selectItem(newDeco.id);
         });
     });
 
-    // --- 5. 씬 렌더링 함수 ---
+    // --- 씬 렌더링 함수 ---
     function renderScene(sceneNumber) {
         if (!canvas) return;
         const data = storyData[sceneNumber];
@@ -346,7 +317,6 @@ document.addEventListener('DOMContentLoaded', () => {
         
         data.decorations.forEach(createDecorationElement);
         
-        // ⭐ [수정] 씬 전환 시 selectedDecoId가 유효한지 확인
         const itemExists = data.decorations.some(d => d.id === selectedDecoId);
         if (!itemExists) {
             selectedDecoId = null;
@@ -357,7 +327,7 @@ document.addEventListener('DOMContentLoaded', () => {
         syncStateToFirestore(); 
     }
 
-    // --- 6. 장식 요소 생성 함수 ---
+    // --- 장식 요소 생성 함수 ---
     function createDecorationElement(decoData) {
          if (!canvas) return;
         const item = document.createElement('div');
@@ -567,7 +537,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (flipButton) {
             flipButton.addEventListener('click', (e) => {
                 e.stopPropagation();
-                // handleControllerControl(element.id, 'flip'); // self-call
                 decoData.scaleX *= -1;
                 updateElementStyle(decoData);
                 syncStateToFirestore();
@@ -617,8 +586,7 @@ document.addEventListener('DOMContentLoaded', () => {
             scenes.forEach(s => s.classList.remove('active'));
             scene.classList.add('active');
             currentScene = scene.dataset.scene;
-            // selectedDecoId = null; // 씬 전환 시 선택 해제 (renderScene에서 처리)
-            renderScene(currentScene); // 씬 전환 시 렌더링 (내부에서 syncState 호출)
+            renderScene(currentScene); 
         });
     });
     
@@ -649,7 +617,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 초기 렌더링 및 동기화
+    // 초기 렌더링
     renderScene(currentScene);
-    // syncStateToFirestore(); // renderScene 내부에서 호출됨
 });
