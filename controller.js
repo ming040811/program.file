@@ -37,7 +37,6 @@ document.addEventListener('DOMContentLoaded', () => {
     async function sendCommandToFirestore(action, data = {}) {
         if (!SESSION_ID) return;
 
-        // 'select_multi' 또는 'control_one' 외의 액션은 선택된 아이템이 있어야 함
         if (action !== 'select_multi' && action !== 'control_one' && selectedDecoIds.length === 0) {
              console.warn("No item selected for action:", action);
              return;
@@ -63,37 +62,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 2. PC -> 모바일 (상태 수신) ---
     function listenForPCState() {
-        // [수정] 연결 텍스트
-        sceneInfoEl.textContent = "사이트와 연결 시도 중...";
-
         CONTROLLER_REF.onSnapshot((doc) => {
-            
-            // [수정] 깜박임 방지
-            // 사용자가 패드를 드래그(조작)하는 중에는 PC로부터 오는 상태 업데이트를 무시합니다.
-            if (activeTouches.size > 0) {
-                return;
-            }
-
             if (doc.exists && doc.data().pcState) {
-                // --- CONNECTED ---
                 const state = doc.data().pcState;
-                sceneInfoEl.textContent = `Scene ${state.scene} 연결됨`;
                 
+                sceneInfoEl.textContent = `Scene ${state.scene} 연결됨`;
                 currentDecoList = state.decoList || [];
                 selectedDecoIds = state.selectedIds || [];
+
                 updateTouchPads();
 
             } else {
-                // --- NOT CONNECTED ---
-                sceneInfoEl.textContent = "사이트와 연결 시도 중...";
-                
+                sceneInfoEl.textContent = "PC 연결 대기 중...";
                 currentDecoList = [];
                 selectedDecoIds = [];
                 updateTouchPads();
             }
         }, (error) => {
             console.error("Error listening for PC state:", error);
-            sceneInfoEl.textContent = "연결 오류!"; // 오류 발생 시
+            sceneInfoEl.textContent = "연결 오류!";
         });
     }
 
@@ -103,8 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateTouchPads() {
         touchPadsWrapper.innerHTML = ''; 
 
-        // [수정] 캔버스 크기가 0이면(CSS 로드 전) 실행 중단
-        if (mainCanvasFrame.offsetWidth === 0) return; 
+        if (mainCanvasFrame.offsetWidth === 0) return; // 프레임이 그려지기 전이면 중단
 
         const frameWidth = mainCanvasFrame.offsetWidth;
         const frameHeight = mainCanvasFrame.offsetHeight;
@@ -116,13 +102,16 @@ document.addEventListener('DOMContentLoaded', () => {
             pad.dataset.id = deco.id;
             pad.title = `아이템 ${index + 1} 선택 및 이동`;
 
-            // 90도 회전된 좌표 적용
+            // ⭐ [핵심] 90도 회전된 좌표 적용
+            // 모바일 X (가로) = PC의 Y 좌표 (state.x_mobile)
             const pixelX = deco.x_mobile * frameWidth;
+            // 모바일 Y (세로) = PC의 X 좌표 (state.y_mobile)
             const pixelY = deco.y_mobile * frameHeight;
 
             pad.style.left = `${pixelX}px`;
             pad.style.top = `${pixelY}px`;
             
+            // 패드가 활성화 (PC에서 리스트를 받음)될 때 보이도록
             setTimeout(() => { pad.style.opacity = '1'; }, 10); 
 
             if (selectedDecoIds.includes(deco.id)) {
@@ -137,13 +126,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 const decoId = deco.id; 
                 const isSelected = selectedDecoIds.includes(decoId);
 
-                if (e.metaKey || e.ctrlKey) { // 다중 선택 (PC 테스트용)
+                if (e.metaKey || e.ctrlKey) { // 다중 선택 (Ctrl/Cmd + 클릭)
                     if (isSelected) {
                         selectedDecoIds = selectedDecoIds.filter(id => id !== decoId);
                     } else {
                         selectedDecoIds.push(decoId);
                     }
-                } else { // 단일 선택 (모바일)
+                } else { // 단일 선택
                     if (isSelected && selectedDecoIds.length === 1) {
                         selectedDecoIds = []; // 이미 선택된거 다시 누르면 해제
                     } else {
@@ -153,7 +142,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 sendCommandToFirestore('select_multi', { ids: selectedDecoIds });
                 
-                updateTouchPads(); // 로컬 UI 즉시 업데이트
+                // 로컬 UI 즉시 업데이트
+                updateTouchPads(); 
             });
 
             touchPadsWrapper.appendChild(pad);
@@ -180,7 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const targetPad = touch.target.closest('.touch-pad');
             
             if (targetPad) {
-                e.preventDefault(); 
+                e.preventDefault(); // 터치패드 영역에서만 스크롤 방지
                 const decoId = targetPad.dataset.id;
                 
                 activeTouches.set(touch.identifier, {
@@ -194,11 +184,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 targetPad.classList.add('active'); 
             }
         }
-    }, { passive: false }); 
+    }, { passive: false }); // 스크롤 방지를 위해 passive: false 설정
 
     touchPadsWrapper.addEventListener('touchmove', (e) => {
         if (activeTouches.size > 0) {
-             e.preventDefault(); 
+             e.preventDefault(); // 드래그 중 스크롤 방지
         }
 
         for (const touch of e.changedTouches) {
@@ -206,12 +196,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (dragData) {
                 const { pad, decoId, lastX, lastY, frameWidth, frameHeight } = dragData;
-                
-                // ⭐ [방어 코드] 0으로 나누기 방지
-                if (frameWidth === 0 || frameHeight === 0) {
-                    console.error("Canvas frame size is zero. Layout is broken.");
-                    return; // 전송 중단
-                }
 
                 const dx = touch.clientX - lastX;
                 const dy = touch.clientY - lastY;
@@ -222,14 +206,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 let newPadLeft = currentPadLeft + dx;
                 let newPadTop = currentPadTop + dy;
 
+                // (경계 처리 로직 - 중심점 기준)
                 newPadLeft = Math.max(0, Math.min(newPadLeft, frameWidth));
                 newPadTop = Math.max(0, Math.min(newPadTop, frameHeight));
 
                 pad.style.left = `${newPadLeft}px`;
                 pad.style.top = `${newPadTop}px`;
                 
-                // 90도 회전된 정규화 좌표 전송
+                // ⭐ [핵심] 90도 회전된 정규화 좌표 전송
+                // 모바일 X (가로)
                 const newNormX = newPadLeft / frameWidth;
+                // 모바일 Y (세로)
                 const newNormY = newPadTop / frameHeight;
 
                 const deco = currentDecoList.find(d => d.id === decoId);
@@ -294,8 +281,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 리사이즈 이벤트
     window.addEventListener('resize', () => {
-        // 리사이즈 시에도 드래그 중이면 업데이트 방지
-        if (activeTouches.size > 0) return;
         updateTouchPads();
     });
 });
