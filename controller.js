@@ -37,7 +37,6 @@ document.addEventListener('DOMContentLoaded', () => {
     async function sendCommandToFirestore(action, data = {}) {
         if (!SESSION_ID) return;
 
-        // 'item_click'과 'control_one'은 selectedDecoIds가 없어도 전송 허용
         if (action !== 'item_click' && action !== 'control_one' && selectedDecoIds.length === 0) {
              console.warn("No item selected for action:", action);
              return;
@@ -73,7 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 sceneInfoEl.textContent = `Scene ${state.scene} 연결됨`;
                 currentDecoList = state.decoList || []; 
-                selectedDecoIds = state.selectedIds || []; // PC의 상태를 덮어쓰기
+                selectedDecoIds = state.selectedIds || []; 
 
                 updateTouchPads();
             } else {
@@ -120,7 +119,6 @@ document.addEventListener('DOMContentLoaded', () => {
         currentDecoList.forEach((deco, index) => {
             let pad = existingPads.get(deco.id);
 
-            // [좌표 매핑]
             const mobileNormY = deco.y_mobile; 
             const mobileNormX = 1.0 - deco.x_mobile;
             const pixelX = mobileNormX * frameWidth;
@@ -130,6 +128,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // 1a. 기존 패드 업데이트
                 existingPads.delete(deco.id); 
 
+                // [중요] 드래그 중인 패드는 PC의 'pcState'에 의해 덮어쓰이지 않음
                 if (!draggingIds.has(deco.id)) {
                     pad.style.left = `${pixelX}px`;
                     pad.style.top = `${pixelY}px`;
@@ -171,7 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } // --- updateTouchPads 끝 ---
 
 
-    // --- 5. 멀티터치 이벤트 핸들러 ---
+    // --- 5. [⭐️⭐️⭐️ 수정됨 ⭐️⭐️⭐️] 멀티터치 이벤트 핸들러 ---
     
     // 'touchstart'는 '탭' 감지를 위해 *모든* 패드 터치를 등록
     touchPadsWrapper.addEventListener('touchstart', (e) => {
@@ -183,8 +182,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const targetPad = touch.target.closest('.touch-pad');
             
             if (targetPad) {
-                // e.preventDefault(); // (제거된 상태 유지)
-
                 const decoId = targetPad.dataset.id;
                 
                 activeTouches.set(touch.identifier, {
@@ -194,11 +191,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     lastY: touch.clientY,
                     frameWidth: frameWidth,
                     frameHeight: frameHeight,
-                    isThrottled: false,
-                    isDragging: false // 탭/드래그 구분을 위한 플래그
+                    isDragging: false, // 탭/드래그 구분을 위한 플래그
+                    // [⭐️ NEW] 최종 좌표를 저장할 변수 (PC 전송용)
+                    finalNormX: -1, 
+                    finalNormY: -1
                 });
 
-                // 시각적 피드백: 선택된 아이템을 터치했을 때만 'active'
                 if (selectedDecoIds.includes(decoId)) {
                     targetPad.classList.add('active'); 
                 }
@@ -206,7 +204,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }, { passive: false }); 
 
-    // 'touchmove'는 'isDragging' 플래그를 true로 설정
+    // [⭐️ 수정] 'touchmove'는 PC로 명령을 보내지 않고, 로컬 UI만 업데이트
     touchPadsWrapper.addEventListener('touchmove', (e) => {
         if (activeTouches.size > 0) {
              e.preventDefault(); // 드래그 시작 시 스크롤 방지
@@ -216,16 +214,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const dragData = activeTouches.get(touch.identifier);
 
             if (dragData) {
-                // 손가락이 움직였으므로 '드래그'로 확정
                 dragData.isDragging = true; 
 
-                // 선택된 아이템만 드래그되도록 보장
                 if (!selectedDecoIds.includes(dragData.decoId)) {
                     continue; 
                 }
 
-                // --- (이하 드래그 로직) ---
-                const { pad, decoId, lastX, lastY, frameWidth, frameHeight } = dragData;
+                const { pad, lastX, lastY, frameWidth, frameHeight } = dragData;
                 const dx = touch.clientX - lastX;
                 const dy = touch.clientY - lastY;
                 let currentPadLeft = parseFloat(pad.style.left);
@@ -235,44 +230,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 newPadLeft = Math.max(0, Math.min(newPadLeft, frameWidth));
                 newPadTop = Math.max(0, Math.min(newPadTop, frameHeight));
 
+                // 1. 로컬 UI 즉시 업데이트 (매우 부드러움)
                 pad.style.left = `${newPadLeft}px`;
                 pad.style.top = `${newPadTop}px`;
                 dragData.lastX = touch.clientX;
                 dragData.lastY = touch.clientY;
 
-                if (dragData.isThrottled) {
-                    continue; 
-                }
-
-                dragData.isThrottled = true;
-                setTimeout(() => {
-                    if (activeTouches.has(touch.identifier)) {
-                        activeTouches.get(touch.identifier).isThrottled = false;
-                    }
-                }, 30); // ⭐️⭐️⭐️ 50ms -> 30ms로 수정 (성능 향상) ⭐️⭐️⭐️
-                
+                // 2. [⭐️ 수정] PC로 보낼 최종 좌표를 'dragData'에 계속 갱신
                 const mobileNormX = newPadLeft / frameWidth;
                 const mobileNormY = newPadTop / frameHeight;
-                const logic_Site_TB = 1.0 - mobileNormX;
-                const logic_Site_LR = mobileNormY;
+                dragData.finalNormX = 1.0 - mobileNormX; // logic_Site_TB
+                dragData.finalNormY = mobileNormY;      // logic_Site_LR
 
-                const deco = currentDecoList.find(d => d.id === decoId);
-                if (deco) { 
-                    deco.x_mobile = logic_Site_TB;
-                    deco.y_mobile = logic_Site_LR;
-                }
-                
-                sendCommandToFirestore('control_one', { 
-                    id: decoId, 
-                    action: 'move',
-                    x_mobile: logic_Site_TB, 
-                    y_mobile: logic_Site_LR  
-                });
+                // 3. [⭐️ 제거] 30ms 스로틀링 및 sendCommandToFirestore('control_one') 제거
+                // (네트워크 통신을 'touchend'로 넘김)
             }
         }
     }, { passive: false }); 
 
-    // 'touchend'는 'isDragging' 플래그를 확인하여 '탭'을 감지
+    // [⭐️ 수정] 'touchend'는 탭/드래그를 구분하여 PC로 *최종* 명령 전송
     const touchEndOrCancel = (e) => {
         for (const touch of e.changedTouches) {
             const dragData = activeTouches.get(touch.identifier);
@@ -280,12 +256,22 @@ document.addEventListener('DOMContentLoaded', () => {
             if(dragData) {
                 dragData.pad.classList.remove('active'); 
 
-                // [탭(Tap) 감지 로직]
-                // 드래그되지 않았다면(isDragging == false) '탭'으로 간주
-                if (dragData.isDragging === false) {
+                if (dragData.isDragging === true) {
+                    // [⭐️ NEW] 드래그가 끝났으므로, '최종 위치'를 1회 전송
+                    if (dragData.finalNormX !== -1) {
+                        sendCommandToFirestore('control_one', { 
+                            id: dragData.decoId, 
+                            action: 'move',
+                            x_mobile: dragData.finalNormX, // PC Y축 (상/하)
+                            y_mobile: dragData.finalNormY  // PC X축 (좌/우)
+                        });
+                    }
+                } else {
+                    // [⭐️ NEW] 드래그되지 않았으므로 '탭'으로 간주, 'item_click' 전송
                     sendCommandToFirestore('item_click', { id: dragData.decoId });
                 }
             }
+            // 터치 종료
             activeTouches.delete(touch.identifier);
         }
     };
@@ -294,7 +280,7 @@ document.addEventListener('DOMContentLoaded', () => {
     touchPadsWrapper.addEventListener('touchcancel', touchEndOrCancel);
 
 
-    // --- 6. 버튼 이벤트 리스너 ---
+    // --- 6. 버튼 이벤트 리스너 --- (이전과 동일)
     document.querySelectorAll('.control-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             if (selectedDecoIds.length === 0 || btn.disabled) return;
@@ -308,7 +294,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // --- 7. 삭제 버튼 ---
+    // --- 7. 삭제 버튼 --- (이전과 동일)
     deleteButton.addEventListener('click', () => {
         if (selectedDecoIds.length === 0 || deleteButton.disabled) return;
         sendCommandToFirestore('delete_multi');
