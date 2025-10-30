@@ -21,14 +21,14 @@ body {
     flex-direction: column;
     align-items: center;
     
-    /* ⭐ [수정] center -> flex-start (UI를 위로 당겨 버튼 공간 확보) */
+    /* [레이아웃] UI를 위로 당김 */
     justify-content: flex-start;
     
     height: 100vh;
     box-sizing: border-box;
     overflow: hidden;
 
-    /* ⭐ [수정] vh 단위로 변경 (버튼 잘림 방지) */
+    /* [레이아웃] vh 단위로 변경 (버튼 잘림 방지) */
     padding-top: 2vh;
     padding-bottom: 2vh;
     position: relative;
@@ -38,16 +38,18 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    width: 100%;
+    
+    /* ⭐ [수정] 100% -> 90% (Scene 1 글자 보이게 하기) */
+    width: 90%;
     max-width: 400px;
     
     height: 100%;
-    /* ⭐ [수정] body padding을 뺀 높이 */
+    /* [레이아웃] body padding을 뺀 높이 */
     max-height: calc(100vh - 4vh); 
     
-    /* ⭐ [수정] center -> flex-start (UI를 위로 당김) */
+    /* [레이아웃] UI를 위로 당김 */
     justify-content: flex-start; 
-    /* ⭐ [수정] 캔버스와 버튼 사이 간격 */
+    /* [레이아웃] 캔버스와 버튼 사이 간격 */
     gap: 15px; 
 
     position: relative;
@@ -57,18 +59,20 @@ body {
 .main-canvas-frame {
     position: relative;
     
-    /* * ⭐ [캔버스 사라짐/버튼 잘림 문제 해결] 
-     * height: 70% (고정값) 대신 flex-grow: 1 (남은 공간 채우기)로 변경
-     *
-     * - width: 100%: 컨테이너 너비(max 400px)를 꽉 채움
+    /*
+     * [캔버스 크기 수정]
+     * - width: 100%: 부모(.container)의 90% 너비를 꽉 채움
      * - aspect-ratio: 9 / 16: 너비에 맞춰 9:16 높이를 자동 계산함
-     * - flex-grow: 1: 하단 버튼과 간격을 제외한 "남은 공간"을 모두 차지함
-     * - flex-shrink: 1: (중요) 화면이 너무 짧아도 캔버스가 비율을 유지하며 줄어들 수 있게 함
-     * - min-height: 0: (필수) flex-shrink가 올바르게 동작하기 위해 필요함
+     * - flex-grow: 0: (수정) 1 -> 0. 남는 세로 공간을 채우지 않음 (살짝 작아짐)
+     * - flex-shrink: 1: (유지) 화면이 짧아도 캔버스가 비율을 유지하며 줄어듦
+     * - min-height: 0: (유지) flex-shrink가 올바르게 동작하기 위해 필요함
      */
     width: 100%; 
     aspect-ratio: 9 / 16;
-    flex-grow: 1;
+    
+    /* ⭐ [수정] 1 -> 0 (캔버스 크기 살짝 줄이기) */
+    flex-grow: 0;
+    
     flex-shrink: 1;
     min-height: 0; 
 
@@ -116,7 +120,7 @@ body {
     font-size: 1px;
     cursor: grab;
     
-    /* ⭐ [성능 수정] top, left 애니메이션 제거 (랙/느림 문제 해결) */
+    /* [성능] top, left 애니메이션 제거 (랙/느림 문제 해결) */
     transition: background-color 0.2s, opacity 0.3s, box-shadow 0.2s;
     
     opacity: 0;
@@ -131,7 +135,8 @@ body {
 /* --- 하단 컨트롤 영역 --- */
 
 .bottom-controls {
-    width: 90%;
+    /* ⭐ [수정] .container가 90%가 되었으므로, 버튼도 100%로 채움 */
+    width: 100%;
     display: flex;
     flex-direction: row;
     justify-content: space-around;
@@ -139,7 +144,7 @@ body {
     gap: 2px;
     margin-top: 0;
     
-    /* ⭐ [레이아웃] 하단 버튼은 크기 고정 (줄어들지 않음) */
+    /* [레이아웃] 하단 버튼은 크기 고정 (줄어들지 않음) */
     flex-shrink: 0;
 }
 
@@ -264,7 +269,15 @@ body {
 /* --- 가로 모드 (이전과 동일) --- */
 @media (orientation: landscape) and (max-width: 900px) {
     body { padding-top: 10px; padding-bottom: 10px; }
-    .container { flex-direction: row; justify-content: center; align-items: flex-start; max-width: none; max-height: 100vh; width: 95%; gap: 20px; }
+    .container { 
+        flex-direction: row; 
+        justify-content: center; 
+        align-items: flex-start; 
+        max-width: none; 
+        max-height: 100vh; 
+        width: 95%; /* 가로모드에서는 95% */
+        gap: 20px; 
+    }
     
     /* 가로 모드 캔버스 */
     .main-canvas-frame { 
@@ -273,7 +286,7 @@ body {
         max-height: calc(100vh - 20px); 
         aspect-ratio: 9 / 16; /* 비율 유지 */
         margin-bottom: 0; 
-        flex-grow: 0; /* 가로모드에서는 grow 안함 */
+        flex-grow: 0; /* 가로모드에서는 0 */
         flex-shrink: 1;
         min-height: auto; /* min-height 초기화 */
     }
@@ -281,7 +294,16 @@ body {
 
     .scene-info { top: 10px; left: auto; right: 10px; transform: none; writing-mode: horizontal-tb; text-orientation: initial; margin-left: 0; }
     
-    .bottom-controls { flex-direction: column; justify-content: flex-start; align-items: center; width: auto; margin-top: 0; gap: 20px; height: 100%; max-height: calc(100vh - 20px); }
+    .bottom-controls { 
+        flex-direction: column; 
+        justify-content: flex-start; 
+        align-items: center; 
+        width: auto; /* 너비 자동 */
+        margin-top: 0; 
+        gap: 20px; 
+        height: 100%; 
+        max-height: calc(100vh - 20px); 
+    }
     
     .delete-btn { width: 100%; max-width: 120px; padding: 12px 15px; height: auto; }
     .delete-btn span { transform: none; }
