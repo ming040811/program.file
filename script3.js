@@ -59,8 +59,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const decoHeight = deco.height;
             return {
                 id: deco.id,
+                // PC (x=왼쪽-오른쪽, y=위-아래)와 모바일 (x=위-아래, y=오른쪽-왼쪽) 좌표계 역전 및 정규화
+                // x_mobile은 PC의 Y축 정규화 값 (모바일의 세로축)
                 x_mobile: (deco.y + decoHeight / 2) / canvasHeight, 
-                y_mobile: (deco.x + decoWidth / 2) / canvasWidth   
+                // y_mobile은 PC의 X축 정규화 값 (모바일의 가로축)
+                y_mobile: (deco.x + decoWidth / 2) / canvasWidth    
             };
         });
         
@@ -95,7 +98,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (action === 'item_click') {
                         handleItemClick(data.id); 
                     } else if (action === 'control_one') {
-                        handleItemMove(data.id, data.y_mobile, data.x_mobile); 
+                        // 모바일에서 보낸 x_mobile을 PC의 Y축으로, y_mobile을 PC의 X축으로 역전환
+                        handleItemMove(data.id, data.x_mobile, data.y_mobile); 
                     } else if (action === 'control_multi') {
                         data.ids.forEach(id => {
                             handleControllerControl(id, data.action, { direction: data.direction });
@@ -106,6 +110,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         });
                     }
 
+                    // 명령 처리 후 필드 삭제 (명령 소비)
                     CONTROLLER_REF.update({
                         command: firebase.firestore.FieldValue.delete()
                     }).catch(error => {
@@ -168,7 +173,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- [⭐️⭐️⭐️ 수정됨 ⭐️⭐️⭐️] 모바일 좌표계로 아이템 이동 처리 ---
-    function handleItemMove(id, mobileControllerX, mobileControllerY) {
+    function handleItemMove(id, mobileControllerY, mobileControllerX) {
         if (!canvas || !id) return;
         const decoData = storyData[currentScene].decorations.find(d => d.id === id);
         const element = document.getElementById(id);
@@ -177,6 +182,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const canvasWidth = canvas.offsetWidth;
         const canvasHeight = canvas.offsetHeight;
         
+        // 역변환: mobileControllerY(모바일의 세로축=PC의 Y축) -> PC의 Y좌표
+        // 역변환: mobileControllerX(모바일의 가로축=PC의 X축) -> PC의 X좌표
+        // x, y는 아이템의 좌상단 위치 (픽셀)
         decoData.x = (mobileControllerX * canvasWidth) - (decoData.width / 2);
         decoData.y = (mobileControllerY * canvasHeight) - (decoData.height / 2);
 
@@ -184,10 +192,8 @@ document.addEventListener('DOMContentLoaded', () => {
         updateElementStyle(decoData);
         updateThumbnail(currentScene); 
         
-        // ⭐ [수정]
-        // '이동' 명령은 매우 빈번하므로, PC가 컨트롤러로 응답하지 않습니다.
-        // (네트워크 트래픽을 절반으로 줄여 컨트롤러의 '인식' 속도를 높임)
-        // syncStateToFirestore(); // <-- 이 줄 제거 (중요!)
+        // ⭐ [중요] '이동' 명령은 매우 빈번하므로, PC가 컨트롤러로 응답하지 않습니다.
+        // syncStateToFirestore(); // <-- 이 줄 제거 (최적화 유지)
     }
 
     // --- [⭐️⭐️⭐️ 수정됨 ⭐️⭐️⭐️] 컨트롤러 버튼 조작 처리 함수 ---
@@ -225,7 +231,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // ⭐ [수정]
             // '회전/크기/반전'은 중요한 상태 변경이므로, '즉시' 동기화합니다.
-            syncStateToFirestore(); // <-- 이 함수가 다시 필요함
+            syncStateToFirestore(); // <-- 이 함수가 다시 필요함 (유지)
 
         } else if (action === 'delete') {
             const index = storyData[currentScene].decorations.findIndex(d => d.id === id);
@@ -310,7 +316,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function createDecorationElement(decoData) {
-         if (!canvas) return;
+           if (!canvas) return;
         const item = document.createElement('div');
         item.className = 'decoration-item';
         item.id = decoData.id;
@@ -330,7 +336,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const controls = document.createElement('div');
         controls.className = 'controls';
         controls.innerHTML = `<button class="flip" title="좌우반전"><img src="img/좌우반전.png" alt="좌우반전" onerror="this.parentNode.innerHTML='반전'"></button>
-                                <button class="delete" title="삭제"><img src="img/휴지통.png" alt="삭제" onerror="this.parentNode.innerHTML='삭제'"></button>`;
+                                 <button class="delete" title="삭제"><img src="img/휴지통.png" alt="삭제" onerror="this.parentNode.innerHTML='삭제'"></button>`;
         
         const handles = ['tl', 'tr', 'bl', 'br', 'rotator'].map(type => {
             const handle = document.createElement('div');
