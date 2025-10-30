@@ -62,13 +62,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const canvasHeight = canvas.offsetHeight;
 
         const decoListForMobile = storyData[currentScene].decorations.map(deco => {
-            const decoElement = document.getElementById(deco.id) || {};
-            const decoRect = decoElement.getBoundingClientRect ? decoElement.getBoundingClientRect() : { width: deco.width, height: deco.height };
+            // ⭐ [수정] getBoundingClientRect 대신 deco 데이터의 원본 크기 사용
+            const decoWidth = deco.width;
+            const decoHeight = deco.height;
 
             return {
                 id: deco.id,
-                x_mobile: (deco.y + decoRect.height / 2) / canvasHeight, 
-                y_mobile: (deco.x + decoRect.width / 2) / canvasWidth   
+                // PC (Y축: 0~canvasHeight) -> 모바일 (x_mobile: 0~1)
+                x_mobile: (deco.y + decoHeight / 2) / canvasHeight, 
+                // PC (X축: 0~canvasWidth) -> 모바일 (y_mobile: 0~1)
+                y_mobile: (deco.x + decoWidth / 2) / canvasWidth   
             };
         });
         
@@ -108,7 +111,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         selectItems(data.ids || [], 'controller'); 
 
                     } else if (action === 'control_one') {
-                        handleItemMove(data.id, data.y_mobile, data.x_mobile); // (id, pcX_logic, pcY_logic)
+                        // (id, pcX_logic, pcY_logic)
+                        // 컨트롤러에서 (x_mobile, y_mobile)로 보낸 것을 PC 로직에 맞게 (Y, X) 순서로 받음
+                        handleItemMove(data.id, data.y_mobile, data.x_mobile); 
 
                     } else if (action === 'control_multi') {
                         data.ids.forEach(id => {
@@ -153,8 +158,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- [수정됨] 아이템 선택 처리 함수 (복수 선택) ---
-    // ⭐ source: 'pc' (기본값) | 'controller'
+    // --- [⭐️⭐️⭐️ 수정됨 ⭐️⭐️⭐️] 아이템 선택 처리 함수 ---
+    // source: 'pc' (기본값) | 'controller'
     function selectItems(ids = [], source = 'pc') {
         selectedDecoIds = ids;
 
@@ -166,13 +171,18 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         
-        // ⭐ [수정] PC에서 발생한 변경일 때만 컨트롤러로 동기화 (메아리 방지)
-        if (source === 'pc') {
-            syncStateToFirestore(); 
-        }
+        // ⭐ [수정]
+        // '메아리(echo)' 방지 로직을 여기서 제거합니다.
+        // 선택 상태는 PC가 항상 신뢰할 수 있는 단일 출처(SSOT)가 되어야 하므로,
+        // 컨트롤러에서 명령이 오든(source === 'controller') PC에서 직접 클릭하든(source === 'pc'),
+        // 변경된 최종 상태를 "항상" 컨트롤러로 다시 동기화(전파)해야 합니다.
+        
+        // if (source === 'pc') { // <-- 이 조건문 제거
+        syncStateToFirestore(); 
+        // } // <-- 이 조건문 제거
     }
 
-    // --- [수정됨] 모바일 좌표계로 아이템 이동 처리 ---
+    // --- [⭐️⭐️⭐️ 수정됨 ⭐️⭐️⭐️] 모바일 좌표계로 아이템 이동 처리 ---
     function handleItemMove(id, mobileControllerX, mobileControllerY) {
         if (!canvas || !id) return;
         const decoData = storyData[currentScene].decorations.find(d => d.id === id);
@@ -181,10 +191,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const canvasWidth = canvas.offsetWidth;
         const canvasHeight = canvas.offsetHeight;
-        const decoRect = element.getBoundingClientRect();
-
-        decoData.x = (mobileControllerX * canvasWidth) - (decoRect.width / 2);
-        decoData.y = (mobileControllerY * canvasHeight) - (decoRect.height / 2);
+        
+        // ⭐ [수정]
+        // getBoundingClientRect()는 회전값을 포함한 크기를 반환하여 좌표 계산 오류 발생
+        // const decoRect = element.getBoundingClientRect(); // <-- 이 줄 제거
+        
+        // ⭐ [수정] decoData의 원본 너비/높이로 중심점을 계산합니다.
+        // mobileControllerX는 컨트롤러의 Y축(PC의 X축)을 의미 (0.0 ~ 1.0)
+        // mobileControllerY는 컨트롤러의 X축(PC의 Y축)을 의미 (0.0 ~ 1.0)
+        decoData.x = (mobileControllerX * canvasWidth) - (decoData.width / 2);
+        decoData.y = (mobileControllerY * canvasHeight) - (decoData.height / 2);
 
         updateElementStyle(decoData);
         
@@ -208,11 +224,14 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (action === 'scale') {
             const direction = data.direction;
             const factor = 1 + (direction === 'UP' ? step.scale : -step.scale);
-            const element = document.getElementById(id);
-            const decoRect = element ? element.getBoundingClientRect() : { width: decoData.width, height: decoData.height };
-            if (decoRect.width * factor > 20 && decoRect.height * factor > 20) {
-                const deltaWidth = (decoRect.width * factor) - decoRect.width;
-                const deltaHeight = (decoRect.height * factor) - decoRect.height;
+            
+            // ⭐ [수정] getBoundingClientRect 대신 원본 크기 사용
+            const currentWidth = decoData.width;
+            const currentHeight = decoData.height;
+
+            if (currentWidth * factor > 20 && currentHeight * factor > 20) {
+                const deltaWidth = (currentWidth * factor) - currentWidth;
+                const deltaHeight = (currentHeight * factor) - currentHeight;
                 decoData.width *= factor;
                 decoData.height *= factor;
                 decoData.x -= deltaWidth / 2;
