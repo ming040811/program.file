@@ -92,7 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // =========================================================================
-    // ⭐ 🚨 [신규 추가] 하단 버튼 상태 업데이트 로직 (분리) 🚨 ⭐
+    // ⭐ 🚨 하단 버튼 상태 업데이트 로직 (분리) 🚨 ⭐
     // =========================================================================
     function updateButtonDisabledState() {
         const isSelected = selectedDecoIds.length > 0;
@@ -105,7 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // =========================================================================
-    // ⭐ 🚨 [전면 수정] DOM Reconciliation (비교/조정) 방식으로 수정된 함수 🚨 ⭐
+    // ⭐ 🚨 DOM Reconciliation (비교/조정) 방식으로 수정된 함수 🚨 ⭐
     // =========================================================================
     function updateTouchPads() {
         if (mainCanvasFrame.offsetWidth === 0) return; // 프레임이 그려지기 전이면 중단
@@ -113,10 +113,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const frameWidth = mainCanvasFrame.offsetWidth;
         const frameHeight = mainCanvasFrame.offsetHeight;
 
-        // 현재 드래그 중인 ID 셋 (성능을 위해 Set 사용)
         const draggingIds = new Set(Array.from(activeTouches.values()).map(data => data.decoId));
 
-        // 현재 DOM에 있는 패드들을 Map으로 만듦 (빠른 탐색용)
         const existingPads = new Map();
         touchPadsWrapper.querySelectorAll('.touch-pad').forEach(pad => {
             existingPads.set(pad.dataset.id, pad);
@@ -126,21 +124,22 @@ document.addEventListener('DOMContentLoaded', () => {
         currentDecoList.forEach((deco, index) => {
             let pad = existingPads.get(deco.id);
 
-            // [핵심] 90도 회전된 좌표 적용
-            const pixelX = deco.x_mobile * frameWidth;
-            const pixelY = deco.y_mobile * frameHeight;
+            // ⭐ [좌표 수정] 90도 회전 및 반전된 좌표 적용
+            const mobileNormX = 1.0 - deco.x_mobile; // PC의 x_mobile (위) -> 모바일 x (가로)
+            const mobileNormY = 1.0 - deco.y_mobile; // PC의 y_mobile (아래) -> 모바일 y (세로)
+            
+            const pixelX = mobileNormX * frameWidth;
+            const pixelY = mobileNormY * frameHeight;
 
             if (pad) {
                 // 1a. 기존 패드 업데이트
-                existingPads.delete(deco.id); // 처리된 패드는 맵에서 제거
+                existingPads.delete(deco.id); 
 
-                // ❗️ [핵심 수정] 드래그 중인 패드는 onSnapshot(PC상태)의 좌표를 무시함
                 if (!draggingIds.has(deco.id)) {
                     pad.style.left = `${pixelX}px`;
                     pad.style.top = `${pixelY}px`;
                 }
                 
-                // 선택 상태는 항상 업데이트
                 pad.classList.toggle('selected', selectedDecoIds.includes(deco.id));
 
             } else {
@@ -182,26 +181,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     sendCommandToFirestore('select_multi', { ids: selectedDecoIds });
                     
-                    // [성능 수정] updateTouchPads() 대신 가벼운 로컬 UI 업데이트
-                    // 1. 모든 패드의 'selected' 클래스만 업데이트
                     document.querySelectorAll('.touch-pad').forEach(p => {
                         p.classList.toggle('selected', selectedDecoIds.includes(p.dataset.id));
                     });
-                    // 2. 하단 버튼 상태 업데이트
                     updateButtonDisabledState();
                 });
 
                 touchPadsWrapper.appendChild(pad);
                 
-                // 패드가 활성화될 때 보이도록
                 setTimeout(() => { pad.style.opacity = '1'; }, 10); 
             }
         });
 
         // --- 2. 맵에 남아있는 패드 (stale) DOM에서 삭제 ---
         existingPads.forEach(pad => {
-            pad.style.opacity = '0'; // 사라지는 애니메이션
-            setTimeout(() => { pad.remove(); }, 300); // 0.3초 후 DOM에서 제거
+            pad.style.opacity = '0';
+            setTimeout(() => { pad.remove(); }, 300);
         });
 
         // --- 3. 버튼 활성화/비활성화 ---
@@ -221,7 +216,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const targetPad = touch.target.closest('.touch-pad');
             
             if (targetPad) {
-                e.preventDefault(); // 터치패드 영역에서만 스크롤 방지
+                e.preventDefault(); 
                 const decoId = targetPad.dataset.id;
                 
                 activeTouches.set(touch.identifier, {
@@ -230,13 +225,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     lastX: touch.clientX,
                     lastY: touch.clientY,
                     frameWidth: frameWidth,
-                    frameHeight: frameHeight
+                    frameHeight: frameHeight,
+                    isThrottled: false // ⭐ [성능 수정] 스로틀 플래그 추가
                 });
                 targetPad.classList.add('active'); 
             }
         }
-    }, { passive: false }); // 스크롤 방지를 위해 passive: false 설정
+    }, { passive: false });
 
+    // ⭐ [성능/좌표 수정] touchmove 이벤트 핸들러 (스로틀링 적용)
     touchPadsWrapper.addEventListener('touchmove', (e) => {
         if (activeTouches.size > 0) {
              e.preventDefault(); // 드래그 중 스크롤 방지
@@ -257,34 +254,49 @@ document.addEventListener('DOMContentLoaded', () => {
                 let newPadLeft = currentPadLeft + dx;
                 let newPadTop = currentPadTop + dy;
 
-                // (경계 처리 로직 - 중심점 기준)
                 newPadLeft = Math.max(0, Math.min(newPadLeft, frameWidth));
                 newPadTop = Math.max(0, Math.min(newPadTop, frameHeight));
 
+                // 1. [성능] 로컬 UI는 즉시 업데이트 (부드러운 움직임)
                 pad.style.left = `${newPadLeft}px`;
                 pad.style.top = `${newPadTop}px`;
                 
-                // ⭐ [핵심] 90도 회전된 정규화 좌표 전송
-                // 모바일 X (가로)
-                const newNormX = newPadLeft / frameWidth;
-                // 모바일 Y (세로)
-                const newNormY = newPadTop / frameHeight;
+                dragData.lastX = touch.clientX;
+                dragData.lastY = touch.clientY;
 
+                // 2. [성능] 네트워크 전송은 50ms 마다 한번씩만 (스로틀링)
+                if (dragData.isThrottled) {
+                    continue; // 50ms가 지나지 않았으면 전송 안함
+                }
+
+                dragData.isThrottled = true;
+                setTimeout(() => {
+                    if (activeTouches.has(touch.identifier)) {
+                        activeTouches.get(touch.identifier).isThrottled = false;
+                    }
+                }, 50); // 50ms (0.05초) 간격
+                
+
+                // 3. [좌표] 90도 회전 및 반전된 정규화 좌표 전송
+                const mobileNormX = newPadLeft / frameWidth;
+                const mobileNormY = newPadTop / frameHeight;
+                
+                const pcNormX = 1.0 - mobileNormX; // 모바일 x -> PC x
+                const pcNormY = 1.0 - mobileNormY; // 모바일 y -> PC y
+
+                // 4. [성능] currentDecoList(로컬 상태)도 직접 업데이트 (깜박임 방지)
                 const deco = currentDecoList.find(d => d.id === decoId);
                 if (deco) { 
-                    deco.x_mobile = newNormX; 
-                    deco.y_mobile = newNormY; 
+                    deco.x_mobile = pcNormX; // PC가 받을 값
+                    deco.y_mobile = pcNormY; // PC가 받을 값
                 }
                 
                 sendCommandToFirestore('control_one', { 
                     id: decoId, 
                     action: 'move',
-                    x_mobile: newNormX, 
-                    y_mobile: newNormY 
+                    x_mobile: pcNormX, // PC로 보낼 값
+                    y_mobile: pcNormY  // PC로 보낼 값
                 });
-
-                dragData.lastX = touch.clientX;
-                dragData.lastY = touch.clientY;
             }
         }
     }, { passive: false }); 
@@ -325,7 +337,6 @@ document.addEventListener('DOMContentLoaded', () => {
         
         selectedDecoIds = []; 
         
-        // [수정] updateTouchPads() 대신 가벼운 로컬 UI 업데이트
         document.querySelectorAll('.touch-pad.selected').forEach(pad => {
             pad.classList.remove('selected');
         });
