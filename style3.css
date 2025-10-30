@@ -314,8 +314,8 @@ body {
 /* 🚀 [최종 크기 수정: 40px] 큐알코드 닫기 버튼 스타일 */
 .qrcode-close-button {
     /* 크기 조정: 40px */
-    height: 35px !important; 
-    width: 85px !important; /* 가로 길이 조정 */
+    height: 40px !important; 
+    width: 90px !important; /* 가로 길이 조정 */
     
     background-color: #4F99B2 !important; 
     color: white !important; 
@@ -336,6 +336,7 @@ body {
 .qrcode-close-button:hover {
     background-color: #63adc7 !important; /* 호버 효과 */
 }
+
 
 
 
