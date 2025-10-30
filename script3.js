@@ -35,7 +35,8 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     let currentScene = '1';
     
-    let selectedDecoId = null; 
+    // ⭐ [수정] 단일 선택 변수를 배열로 변경
+    let selectedDecoIds = []; 
     let toastTimer = null;
 
     // --- 알림창 표시 함수 ---
@@ -61,23 +62,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const canvasWidth = canvas.offsetWidth;
         const canvasHeight = canvas.offsetHeight;
 
-        // ⭐ [핵심] 좌표 90도 회전 및 정규화
         const decoListForMobile = storyData[currentScene].decorations.map(deco => {
             const decoElement = document.getElementById(deco.id) || {};
             const decoRect = decoElement.getBoundingClientRect ? decoElement.getBoundingClientRect() : { width: deco.width, height: deco.height };
 
             return {
                 id: deco.id,
-                // 모바일 X (가로) = PC Y (세로)
-                x_mobile: (deco.y + decoRect.height / 2) / canvasHeight,
-                // 모바일 Y (세로) = PC X (가로)
-                y_mobile: (deco.x + decoRect.width / 2) / canvasWidth
+                // ⭐ [좌표 매핑 수정] PC Y -> 모바일 X (컨트롤러 가로)
+                x_mobile: (deco.y + decoRect.height / 2) / canvasHeight, 
+                // ⭐ [좌표 매핑 수정] PC X -> 모바일 Y (컨트롤러 세로)
+                y_mobile: (deco.x + decoRect.width / 2) / canvasWidth   
             };
         });
         
         const state = {
             scene: currentScene,
-            selectedIds: selectedDecoId ? [selectedDecoId] : [],
+            // ⭐ [수정] 선택된 ID 배열(selectedDecoIds)을 그대로 전송
+            selectedIds: selectedDecoIds, 
             decoList: decoListForMobile,
             timestamp: firebase.firestore.FieldValue.serverTimestamp()
         };
@@ -106,12 +107,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     const data = command.data || {};
 
                     if (action === 'select_multi') {
-                        // PC는 싱글 셀렉트이므로, 모바일에서 선택한 것 중 마지막 아이템을 선택
-                        selectItem(data.ids ? data.ids[data.ids.length - 1] : null);
+                        // ⭐ [수정] 컨트롤러의 선택 배열(data.ids)을 PC에 그대로 반영
+                        selectItems(data.ids || []);
 
                     } else if (action === 'control_one') {
                         // 개별 아이템 이동 (터치패드 드래그)
-                        handleItemMove(data.id, data.x_mobile, data.y_mobile);
+                        // ⭐ [좌표 매핑 수정] x_mobile, y_mobile 순서 변경
+                        handleItemMove(data.id, data.y_mobile, data.x_mobile); // (id, pcX_logic, pcY_logic)
 
                     } else if (action === 'control_multi') {
                         // 다중 아이템 조작 (버튼)
@@ -150,7 +152,6 @@ document.addEventListener('DOMContentLoaded', () => {
         openControllerBtn.addEventListener('click', () => {
             if (qrModal) qrModal.style.display = 'flex';
             
-            // ⭐ [수정됨] URL이 'controller.html'을 가리키도록 변경
             const baseUrl = window.location.href.substring(0, window.location.href.lastIndexOf('/'));
             const controllerUrl = `${baseUrl}/controller.html?session=${SESSION_ID}`;
 
@@ -167,23 +168,27 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- 아이템 선택 처리 함수 ---
-    function selectItem(id) {
-        document.querySelectorAll('.decoration-item').forEach(el => el.classList.remove('selected'));
-        selectedDecoId = null;
+    // --- [수정] 아이템 선택 처리 함수 (복수 선택) ---
+    function selectItems(ids = []) {
+        // 1. (데이터) 새 ID 목록으로 교체
+        selectedDecoIds = ids;
 
-        if (id) {
-            const element = document.getElementById(id);
-            if (element) {
-                element.classList.add('selected');
-                selectedDecoId = id;
+        // 2. (UI) 모든 .decoration-item에서 'selected' 클래스 제거
+        document.querySelectorAll('.decoration-item').forEach(el => {
+            // 3. (UI) 새 목록에 있는 ID에만 'selected' 클래스 추가
+            if (selectedDecoIds.includes(el.id)) {
+                el.classList.add('selected');
+            } else {
+                el.classList.remove('selected');
             }
-        }
+        });
+        
+        // 4. 상태 동기화
         syncStateToFirestore(); 
     }
 
-    // --- [신규] 모바일 좌표계(90도 회전)로 아이템 이동 처리 ---
-    function handleItemMove(id, mobileX, mobileY) {
+    // --- [수정] 모바일 좌표계로 아이템 이동 처리 ---
+    function handleItemMove(id, mobileControllerX, mobileControllerY) {
         if (!canvas || !id) return;
         const decoData = storyData[currentScene].decorations.find(d => d.id === id);
         const element = document.getElementById(id);
@@ -193,11 +198,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const canvasHeight = canvas.offsetHeight;
         const decoRect = element.getBoundingClientRect();
 
-        // ⭐ [핵심] 좌표 90도 회전 적용 (중심점 기준)
-        // PC X (가로) = 모바일 Y (세로)
-        decoData.x = (mobileY * canvasWidth) - (decoRect.width / 2);
-        // PC Y (세로) = 모바일 X (가로)
-        decoData.y = (mobileX * canvasHeight) - (decoRect.height / 2);
+        // ⭐ [핵심] 좌표 90도 회전 적용 (컨트롤러 -> PC)
+        // PC X (가로) = 컨트롤러 Y (세로)
+        decoData.x = (mobileControllerX * canvasWidth) - (decoRect.width / 2);
+        // PC Y (세로) = 컨트롤러 X (가로)
+        decoData.y = (mobileControllerY * canvasHeight) - (decoRect.height / 2);
 
         updateElementStyle(decoData);
         
@@ -243,9 +248,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 const element = document.getElementById(id);
                 if (element) element.remove();
                 
-                if (selectedDecoId === id) {
-                    selectItem(null); 
+                // ⭐ [수정] 삭제된 아이템이 선택 목록에 있는지 확인
+                if (selectedDecoIds.includes(id)) {
+                    // 목록에서 제거하고 갱신
+                    selectedDecoIds = selectedDecoIds.filter(i => i !== id);
+                    selectItems(selectedDecoIds);
                 } else {
+                    // 선택 목록에 변경이 없으므로, 그냥 상태 동기화
                     syncStateToFirestore(); 
                 }
                 updateThumbnail(currentScene); 
@@ -300,7 +309,9 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             storyData[currentScene].decorations.push(newDeco);
             renderScene(currentScene); 
-            selectItem(newDeco.id);
+            
+            // ⭐ [수정] 새 아이템을 유일한 선택 항목으로 지정
+            selectItems([newDeco.id]);
         });
     });
 
@@ -317,14 +328,16 @@ document.addEventListener('DOMContentLoaded', () => {
         
         data.decorations.forEach(createDecorationElement);
         
-        const itemExists = data.decorations.some(d => d.id === selectedDecoId);
-        if (!itemExists) {
-            selectedDecoId = null;
-        }
-        selectItem(selectedDecoId); 
+        // ⭐ [수정] 씬 렌더링 시, 현재 씬에 없는 아이템은 선택 목록에서 제거
+        const newDecoIds = new Set(data.decorations.map(d => d.id));
+        selectedDecoIds = selectedDecoIds.filter(id => newDecoIds.has(id));
+        
+        // ⭐ [수정] selectItem 대신 selectItems 호출
+        selectItems(selectedDecoIds); 
         
         setTimeout(() => updateThumbnail(sceneNumber), 50); 
-        syncStateToFirestore(); 
+        // selectItems 함수 내부에서 syncStateToFirestore가 호출되므로 중복 호출 제거
+        // syncStateToFirestore(); 
     }
 
     // --- 장식 요소 생성 함수 ---
@@ -349,7 +362,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const controls = document.createElement('div');
         controls.className = 'controls';
         controls.innerHTML = `<button class="flip" title="좌우반전"><img src="img/좌우반전.png" alt="좌우반전" onerror="this.parentNode.innerHTML='반전'"></button>
-                              <button class="delete" title="삭제"><img src="img/휴지통.png" alt="삭제" onerror="this.parentNode.innerHTML='삭제'"></button>`;
+                                <button class="delete" title="삭제"><img src="img/휴지통.png" alt="삭제" onerror="this.parentNode.innerHTML='삭제'"></button>`;
         
         const handles = ['tl', 'tr', 'bl', 'br', 'rotator'].map(type => {
             const handle = document.createElement('div');
@@ -362,14 +375,34 @@ document.addEventListener('DOMContentLoaded', () => {
         makeInteractive(item);
     }
 
-    // --- 7. 인터랙티브 기능 부여 함수 (PC 직접 조작) ---
+    // --- [수정] 인터랙티브 기능 부여 함수 (PC 직접 조작) ---
     function makeInteractive(element) {
         const decoData = storyData[currentScene].decorations.find(d => d.id === element.id);
         if (!decoData) return;
 
-        // 선택
+        // ⭐ [수정] 선택 로직 (컨트롤러와 동일한 "최대 2개" 로직)
         element.addEventListener('mousedown', (e) => {
-            selectItem(element.id);
+            if (e.target.closest('.handle') || e.target.closest('.controls')) return;
+            
+            const id = element.id;
+            const isSelected = selectedDecoIds.includes(id);
+
+            if (isSelected) {
+                // 1. 이미 선택됨 -> 선택 해제
+                selectedDecoIds = selectedDecoIds.filter(i => i !== id);
+            } else {
+                // 2. 선택 안 됨
+                if (selectedDecoIds.length < 2) {
+                    // 2a. (0 or 1개) -> 선택 추가
+                    selectedDecoIds.push(id);
+                } else {
+                    // 2b. (2개) -> 가장 오래된 것(0번) 제거, 새 것 추가
+                    selectedDecoIds.shift();
+                    selectedDecoIds.push(id);
+                }
+            }
+            // UI 갱신 및 상태 동기화
+            selectItems(selectedDecoIds); 
             e.stopPropagation();
         });
 
@@ -377,6 +410,21 @@ document.addEventListener('DOMContentLoaded', () => {
         let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
         element.onmousedown = function(e) {
             if (e.target.closest('.handle') || e.target.closest('.controls')) return;
+            
+            // ⭐ [추가] 드래그 시작 시점에도 선택 로직이 실행되도록 함
+            const id = element.id;
+            if (!selectedDecoIds.includes(id)) {
+                // 클릭 시점의 선택 로직과 동일하게 처리
+                const isSelected = selectedDecoIds.includes(id); // false
+                if (selectedDecoIds.length < 2) {
+                    selectedDecoIds.push(id);
+                } else {
+                    selectedDecoIds.shift();
+                    selectedDecoIds.push(id);
+                }
+                selectItems(selectedDecoIds);
+            }
+            
             e.preventDefault();
             pos3 = e.clientX;
             pos4 = e.clientY;
@@ -514,7 +562,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const startAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * (180 / Math.PI);
                 let startRotation = decoData.rotation;
                 document.onmousemove = function(e_move) {
-                    const currentAngle = Math.atan2(e_move.clientY - centerY, e_clientX - centerX) * (180 / Math.PI);
+                    const currentAngle = Math.atan2(e_move.clientY - centerY, e.clientX - centerX) * (180 / Math.PI);
                     let newRotation = startRotation + (currentAngle - startAngle);
                     const snapThreshold = 6;
                     const snappedAngle = Math.round(newRotation / 90) * 90;
@@ -572,10 +620,11 @@ document.addEventListener('DOMContentLoaded', () => {
         return { x: newX, y: newY };
     }
 
-    // --- 9. 캔버스 외부 클릭 시 선택 해제 ---
+    // --- [수정] 캔버스 외부 클릭 시 선택 해제 ---
     document.addEventListener('mousedown', (e) => {
         if (!e.target.closest('.decoration-item') && !e.target.closest('.asset-item') && !e.target.closest('#qr-modal')) {
-            selectItem(null);
+            // ⭐ [수정] 빈 배열로 선택 해제
+            selectItems([]);
         }
     });
 
