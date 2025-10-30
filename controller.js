@@ -37,7 +37,6 @@ document.addEventListener('DOMContentLoaded', () => {
     async function sendCommandToFirestore(action, data = {}) {
         if (!SESSION_ID) return;
 
-        // [수정] control_one 액션은 selectedDecoIds가 없어도 전송 허용
         if (action !== 'select_multi' && action !== 'control_one' && selectedDecoIds.length === 0) {
              console.warn("No item selected for action:", action);
              return;
@@ -45,11 +44,9 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const commandData = {
             ...data,
-            // [수정] control_one은 data.id를 사용하고, 나머지는 selectedDecoIds를 사용
             ids: action === 'control_one' ? (data.id ? [data.id] : []) : (data.ids || selectedDecoIds)
         };
 
-        // [수정] control_one일 경우 data.id를 commandData.id로 명확히 전달
         if (action === 'control_one') {
             commandData.id = data.id;
         }
@@ -124,11 +121,15 @@ document.addEventListener('DOMContentLoaded', () => {
         currentDecoList.forEach((deco, index) => {
             let pad = existingPads.get(deco.id);
 
-            // ⭐ [좌표 수정] 90도 회전 적용 (PC -> 모바일)
-            // PC y (상하 0~1) -> 모바일 x (가로 0~1, 정방향)
-            const mobileNormX = deco.y_mobile;
-            // PC x (좌우 0~1) -> 모바일 y (세로 0~1, 정방향)
+            // ⭐ [좌표 수정] 사용자가 요청한 새 매핑 적용 (PC -> 모바일)
+            // deco.x_mobile = PC X (사이트 좌우)
+            // deco.y_mobile = PC Y (사이트 상하)
+
+            // 1. PC X (사이트 좌우 0~1) -> 모바일 Y (컨트롤러 상하 0~1)
             const mobileNormY = deco.x_mobile;
+
+            // 2. PC Y (사이트 상하 0~1) -> 모바일 X (컨트롤러 우좌 1~0, 반전)
+            const mobileNormX = 1.0 - deco.y_mobile;
             
             const pixelX = mobileNormX * frameWidth;
             const pixelY = mobileNormY * frameHeight;
@@ -229,7 +230,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     lastY: touch.clientY,
                     frameWidth: frameWidth,
                     frameHeight: frameHeight,
-                    isThrottled: false // ⭐ [성능 수정] 스로틀 플래그 추가
+                    isThrottled: false
                 });
                 targetPad.classList.add('active'); 
             }
@@ -281,19 +282,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 
 
                 // 3. [좌표] 90도 회전 및 반전된 정규화 좌표 전송
-                const mobileNormX = newPadLeft / frameWidth;
-                const mobileNormY = newPadTop / frameHeight;
+                const mobileNormX = newPadLeft / frameWidth;  // 컨트롤러 좌(0) ~ 우(1)
+                const mobileNormY = newPadTop / frameHeight; // 컨트롤러 위(0) ~ 아래(1)
                 
-                // ⭐ [좌표 수정] 90도 회전 적용 (모바일 -> PC)
-                // 모바일 y (세로 0~1) -> PC x (좌우 0~1, 정방향)
+                // ⭐ [좌표 수정] 사용자가 요청한 새 매핑 적용 (모바일 -> PC)
+
+                // 1. 컨트롤러 위(Y=0)/아래(Y=1) -> 사이트 좌(X=0)/우(X=1) (정방향)
                 const pcNormX = mobileNormY;
-                // 모바일 x (가로 0~1) -> PC y (상하 0~1, 정방향)
-                const pcNormY = mobileNormX;
+
+                // 2. 컨트롤러 좌(X=0)/우(X=1) -> 사이트 하(Y=1)/상(Y=0) (반전)
+                const pcNormY = 1.0 - mobileNormX;
 
                 // 4. [성능] currentDecoList(로컬 상태)도 직접 업데이트 (깜박임 방지)
                 const deco = currentDecoList.find(d => d.id === decoId);
                 if (deco) { 
-                    // ⭐ [좌표 수정] PC로 보낼 값으로 로컬 상태 업데이트
                     deco.x_mobile = pcNormX;
                     deco.y_mobile = pcNormY;
                 }
@@ -301,7 +303,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 sendCommandToFirestore('control_one', { 
                     id: decoId, 
                     action: 'move',
-                    // ⭐ [좌표 수정] PC로 보낼 값
                     x_mobile: pcNormX,
                     y_mobile: pcNormY 
                 });
