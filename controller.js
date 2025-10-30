@@ -1,5 +1,4 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // ❗️ controller.html에서 'db' 객체가 초기화되어야 합니다.
     if (typeof db === 'undefined') {
         console.error("Firebase Firestore 'db' is not initialized.");
         alert("Firebase 연결 실패! HTML을 확인하세요.");
@@ -29,9 +28,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let selectedDecoIds = []; 
     const activeTouches = new Map(); 
 
-    // --- 롤백(JUMP) 현상 방지용 변수 (800ms 적용 유지) ---
-    let justReleasedPadId = null; 
-    let justReleasedTimer = null; 
+    // --- [⭐️ 삭제됨] justReleasedPadId, justReleasedTimer 변수 삭제 ---
+    // 모바일 패드 달라붙음/튕김 방지를 위해 로직 단순화
 
     // =========================================================================
     // ⭐ 🚨통신 핵심 로직 (Firebase)🚨 ⭐
@@ -92,20 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // =========================================================================
-    // ⭐ 하단 버튼 상태 업데이트 로직 ⭐
-    // =========================================================================
-    function updateButtonDisabledState() {
-        const isSelected = selectedDecoIds.length > 0;
-        document.querySelectorAll('.control-btn').forEach(btn => {
-            btn.disabled = !isSelected;
-        });
-        deleteButton.disabled = !isSelected;
-        controlGroupWrapper.classList.toggle('active', isSelected);
-    }
-
-
-    // =========================================================================
-    // ⭐ DOM Reconciliation & 롤백 방지 로직 ⭐
+    // ⭐ DOM Reconciliation & 달라붙음 방지 로직 (수정) ⭐
     // =========================================================================
     function updateTouchPads() {
         if (mainCanvasFrame.offsetWidth === 0) return; 
@@ -113,6 +98,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const frameWidth = mainCanvasFrame.offsetWidth;
         const frameHeight = mainCanvasFrame.offsetHeight;
         
+        // 현재 드래그 중인 아이템 ID 목록
         const draggingIds = new Set(Array.from(activeTouches.values()).map(data => data.decoId));
         
         const existingPads = new Map();
@@ -125,15 +111,16 @@ document.addEventListener('DOMContentLoaded', () => {
             let pad = existingPads.get(deco.id);
 
             const mobileNormY = deco.y_mobile; 
-            const mobileNormX = 1.0 - deco.x_mobile; 
+            const mobileNormX = 1.0 - deco.x_mobile; // PC와 모바일 좌표계 역전
             const pixelX = mobileNormX * frameWidth;
             const pixelY = mobileNormY * frameHeight;
 
             if (pad) {
                 existingPads.delete(deco.id); 
 
-                // --- 롤백 방지 로직 ---
-                if (!draggingIds.has(deco.id) && deco.id !== justReleasedPadId) {
+                // 🚨 [핵심 수정] 드래그 중인 아이템이 아니라면, PC의 좌표로 업데이트합니다. 
+                // 이 로직을 단순화해야 달라붙는 현상과 롤백 현상을 최소화할 수 있습니다.
+                if (!draggingIds.has(deco.id)) {
                     pad.style.left = `${pixelX}px`;
                     pad.style.top = `${pixelY}px`;
                 }
@@ -141,7 +128,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 pad.classList.toggle('selected', selectedDecoIds.includes(deco.id));
 
             } else {
-                // 1b. 새 패드 생성
+                // 1b. 새 패드 생성 (생략)
                 pad = document.createElement('button');
                 pad.classList.add('touch-pad');
                 pad.id = `touch-pad-${deco.id}`;
@@ -160,23 +147,32 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // --- 2. 맵에 남아있는 패드 (stale) DOM에서 삭제 ---
+        // --- 2. 맵에 남아있는 패드 (stale) DOM에서 삭제 (생략) ---
         existingPads.forEach(pad => {
             pad.style.opacity = '0';
             setTimeout(() => { pad.remove(); }, 300);
         });
 
-        // --- 3. 버튼 활성화/비활성화 ---
+        // --- 3. 버튼 활성화/비활성화 (생략) ---
         updateButtonDisabledState();
 
     } // --- updateTouchPads 끝 ---
+    
+    function updateButtonDisabledState() {
+        const isSelected = selectedDecoIds.length > 0;
+        document.querySelectorAll('.control-btn').forEach(btn => {
+            btn.disabled = !isSelected;
+        });
+        deleteButton.disabled = !isSelected;
+        controlGroupWrapper.classList.toggle('active', isSelected);
+    }
 
 
     // =========================================================================
     // ⭐ 멀티터치 이벤트 핸들러 (움직임 핵심 로직) ⭐
     // =========================================================================
     
-    // 'touchstart'
+    // 'touchstart' (생략)
     touchPadsWrapper.addEventListener('touchstart', (e) => {
         const frameRect = mainCanvasFrame.getBoundingClientRect();
         const frameWidth = frameRect.width;
@@ -208,9 +204,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }, { passive: false }); 
 
-    // 'touchmove' (튕김 로직 제거 및 스로틀링 유지)
+    // 'touchmove' (경계 제한 로직 제거 상태 유지)
     touchPadsWrapper.addEventListener('touchmove', (e) => {
-        // 드래그 중에는 기본 브라우저 동작(스크롤 등) 방지
         if (activeTouches.size > 0) {
               e.preventDefault(); 
         }
@@ -230,9 +225,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 let newPadLeft = currentPadLeft + dx;
                 let newPadTop = currentPadTop + dy;
                 
-                // ❌ [핵심 수정: 경계 제한 로직 제거] ❌
-                // newPadLeft = Math.max(0, Math.min(newPadLeft, frameWidth));
-                // newPadTop = Math.max(0, Math.min(newPadTop, frameHeight));
+                // 경계 제한 로직은 제거된 상태 유지
 
                 // 1. 로컬 UI 즉시 업데이트
                 pad.style.left = `${newPadLeft}px`;
@@ -272,7 +265,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }, { passive: false }); 
 
-    // 'touchend' (롤백 방지 타이머 800ms)
+    // 'touchend' (롤백 방지 타이머 제거)
     const touchEndOrCancel = (e) => {
         for (const touch of e.changedTouches) {
             const dragData = activeTouches.get(touch.identifier);
@@ -281,16 +274,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 dragData.pad.classList.remove('active'); 
 
                 if (dragData.isDragging === true) {
-                    // [⭐️ 롤백 방지 타이머 800ms 적용]
-                    if (justReleasedTimer) {
-                        clearTimeout(justReleasedTimer);
-                    }
-                    justReleasedPadId = dragData.decoId;
-                    
-                    justReleasedTimer = setTimeout(() => {
-                        justReleasedPadId = null;
-                        justReleasedTimer = null;
-                    }, 800); // 800ms
+                    // [⭐️ 롤백 방지 타이머 제거] - PC의 경계 제한 로직으로 롤백 방지 대체
 
                     // 최종 위치 1회 전송 (누락 방지)
                     if (dragData.finalNormX !== -1) {
@@ -315,7 +299,7 @@ document.addEventListener('DOMContentLoaded', () => {
     touchPadsWrapper.addEventListener('touchcancel', touchEndOrCancel);
 
 
-    // --- 6. 버튼 이벤트 리스너 ---
+    // --- 6. 버튼 이벤트 리스너 (생략) ---
     document.querySelectorAll('.control-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             if (selectedDecoIds.length === 0 || btn.disabled) return;
@@ -329,7 +313,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // --- 7. 삭제 버튼 ---
+    // --- 7. 삭제 버튼 (생략) ---
     deleteButton.addEventListener('click', () => {
         if (selectedDecoIds.length === 0 || deleteButton.disabled) return;
         sendCommandToFirestore('delete_multi');
