@@ -29,6 +29,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let selectedDecoIds = []; // PC의 'pcState'에 의해 제어됨
     const activeTouches = new Map(); // 멀티터치 상태 저장
 
+    // --- [⭐️ NEW ⭐️] 롤백(JUMP) 현상 방지용 변수 ---
+    let justReleasedPadId = null; // 방금 드래그를 놓은 패드 ID
+    let justReleasedTimer = null; // '무시 시간' 타이머
+
     // =========================================================================
     // ⭐ 🚨통신 핵심 로직 (Firebase)🚨 ⭐
     // =========================================================================
@@ -128,11 +132,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 // 1a. 기존 패드 업데이트
                 existingPads.delete(deco.id); 
 
-                // [중요] 드래그 중인 패드는 PC의 'pcState'에 의해 덮어쓰이지 않음
-                if (!draggingIds.has(deco.id)) {
+                // --- [⭐️⭐️⭐️ 수정됨 ⭐️⭐️⭐️] ---
+                // PC가 보낸 위치로 업데이트할지 결정
+                // 1. 현재 드래그 중(draggingIds)이면, 업데이트 안 함 (O)
+                // 2. 방금 뗀 패드(justReleasedPadId)면, 0.4초간 업데이트 안 함 (O)
+                if (!draggingIds.has(deco.id) && deco.id !== justReleasedPadId) {
                     pad.style.left = `${pixelX}px`;
                     pad.style.top = `${pixelY}px`;
                 }
+                // --- [수정 끝] ---
                 
                 pad.classList.toggle('selected', selectedDecoIds.includes(deco.id));
 
@@ -150,8 +158,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (selectedDecoIds.includes(deco.id)) {
                     pad.classList.add('selected');
                 }
-
-                // 'touchend'에서 탭(Tap)을 직접 감지하므로 'click' 리스너 없음
 
                 touchPadsWrapper.appendChild(pad);
                 setTimeout(() => { pad.style.opacity = '1'; }, 10); 
@@ -172,7 +178,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 5. [⭐️⭐️⭐️ 수정됨 ⭐️⭐️⭐️] 멀티터치 이벤트 핸들러 ---
     
-    // 'touchstart'는 '탭' 감지를 위해 *모든* 패드 터치를 등록
+    // 'touchstart'
     touchPadsWrapper.addEventListener('touchstart', (e) => {
         const frameRect = mainCanvasFrame.getBoundingClientRect();
         const frameWidth = frameRect.width;
@@ -191,8 +197,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     lastY: touch.clientY,
                     frameWidth: frameWidth,
                     frameHeight: frameHeight,
-                    isDragging: false, // 탭/드래그 구분을 위한 플래그
-                    // [⭐️ NEW] 최종 좌표를 저장할 변수 (PC 전송용)
+                    isDragging: false, 
                     finalNormX: -1, 
                     finalNormY: -1
                 });
@@ -204,10 +209,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }, { passive: false }); 
 
-    // [⭐️ 수정] 'touchmove'는 PC로 명령을 보내지 않고, 로컬 UI만 업데이트
+    // 'touchmove'
     touchPadsWrapper.addEventListener('touchmove', (e) => {
         if (activeTouches.size > 0) {
-             e.preventDefault(); // 드래그 시작 시 스크롤 방지
+             e.preventDefault(); 
         }
 
         for (const touch of e.changedTouches) {
@@ -230,25 +235,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 newPadLeft = Math.max(0, Math.min(newPadLeft, frameWidth));
                 newPadTop = Math.max(0, Math.min(newPadTop, frameHeight));
 
-                // 1. 로컬 UI 즉시 업데이트 (매우 부드러움)
                 pad.style.left = `${newPadLeft}px`;
                 pad.style.top = `${newPadTop}px`;
                 dragData.lastX = touch.clientX;
                 dragData.lastY = touch.clientY;
 
-                // 2. [⭐️ 수정] PC로 보낼 최종 좌표를 'dragData'에 계속 갱신
                 const mobileNormX = newPadLeft / frameWidth;
                 const mobileNormY = newPadTop / frameHeight;
                 dragData.finalNormX = 1.0 - mobileNormX; // logic_Site_TB
                 dragData.finalNormY = mobileNormY;      // logic_Site_LR
-
-                // 3. [⭐️ 제거] 30ms 스로틀링 및 sendCommandToFirestore('control_one') 제거
-                // (네트워크 통신을 'touchend'로 넘김)
             }
         }
     }, { passive: false }); 
 
-    // [⭐️ 수정] 'touchend'는 탭/드래그를 구분하여 PC로 *최종* 명령 전송
+    // 'touchend'
     const touchEndOrCancel = (e) => {
         for (const touch of e.changedTouches) {
             const dragData = activeTouches.get(touch.identifier);
@@ -257,21 +257,35 @@ document.addEventListener('DOMContentLoaded', () => {
                 dragData.pad.classList.remove('active'); 
 
                 if (dragData.isDragging === true) {
-                    // [⭐️ NEW] 드래그가 끝났으므로, '최종 위치'를 1회 전송
+                    // [⭐️ NEW] 드래그가 끝났으므로, '무시 시간' 시작
+                    
+                    // 1. 기존 타이머가 있으면 취소
+                    if (justReleasedTimer) {
+                        clearTimeout(justReleasedTimer);
+                    }
+                    // 2. 이 패드를 '무시' 대상으로 등록
+                    justReleasedPadId = dragData.decoId;
+                    
+                    // 3. 0.4초 뒤에 '무시' 해제
+                    justReleasedTimer = setTimeout(() => {
+                        justReleasedPadId = null;
+                        justReleasedTimer = null;
+                    }, 400); // 400ms (0.4초)
+
+                    // 4. PC로 '최종 위치' 1회 전송
                     if (dragData.finalNormX !== -1) {
                         sendCommandToFirestore('control_one', { 
                             id: dragData.decoId, 
                             action: 'move',
-                            x_mobile: dragData.finalNormX, // PC Y축 (상/하)
-                            y_mobile: dragData.finalNormY  // PC X축 (좌/우)
+                            x_mobile: dragData.finalNormX, 
+                            y_mobile: dragData.finalNormY  
                         });
                     }
                 } else {
-                    // [⭐️ NEW] 드래그되지 않았으므로 '탭'으로 간주, 'item_click' 전송
+                    // [탭] 드래그되지 않았으므로 'item_click' 전송
                     sendCommandToFirestore('item_click', { id: dragData.decoId });
                 }
             }
-            // 터치 종료
             activeTouches.delete(touch.identifier);
         }
     };
