@@ -21,14 +21,16 @@ body {
     flex-direction: column;
     align-items: center;
     
-    /* [수정] flex-start -> center로 변경 */
-    justify-content: center;
+    /* ⭐ [레이아웃 수정] center -> flex-start (UI를 위로 당김) */
+    justify-content: flex-start;
     
     height: 100vh;
     box-sizing: border-box;
     overflow: hidden;
-    padding-top: 15px;
-    padding-bottom: 15px;
+
+    /* ⭐ [레이아웃 수정] vh 단위로 변경 (버튼 잘림 방지) */
+    padding-top: 2vh;
+    padding-bottom: 2vh;
     position: relative;
 }
 
@@ -40,29 +42,28 @@ body {
     max-width: 400px;
     
     height: 100%;
-    max-height: calc(100vh - 30px);
+    /* ⭐ [레이아웃 수정] body padding을 뺀 높이 */
+    max-height: calc(100vh - 4vh); 
     
-    /* [수정] space-between -> center로 변경 (버튼을 위로 올림) */
-    justify-content: center; 
-    /* [추가] 캔버스와 버튼 사이 간격 */
-    gap: 10px; 
+    /* ⭐ [레이아웃 수정] center -> flex-start (UI를 위로 당김) */
+    justify-content: flex-start; 
+    /* ⭐ [레이아웃 수정] 캔버스와 버튼 사이 간격 증가 */
+    gap: 15px; 
 
     position: relative;
 }
 
-/* ⭐ 흰색 9:16 비율 프레임 (그림자 제거) */
+/* ⭐ 흰색 9:16 비율 프레임 */
 .main-canvas-frame {
     position: relative;
     
-    height: 70%; 
-    max-height: 560px; 
+    /* ⭐ [레이아웃 수정] height: auto, max-height: 60vh로 변경 (버튼 잘림 방지) */
+    height: auto; 
+    max-height: 60vh; 
     aspect-ratio: 9 / 16;
 
     background-color: #ffffff;
     border-radius: 8px;
-    /* ⭐ box-shadow 제거 */
-    
-    /* [삭제] margin-bottom: 5px; (gap으로 대체) */
     
     overflow: visible; 
     flex-shrink: 1; 
@@ -70,7 +71,7 @@ body {
 
 .main-canvas-frame::before { content: ''; display: block; }
 
-/* Scene 1 연결 텍스트 스타일 (이전과 동일) */
+/* Scene 1 연결 텍스트 스타일 */
 .scene-info {
     position: absolute;
     top: 15px; 
@@ -106,7 +107,10 @@ body {
     color: transparent;
     font-size: 1px;
     cursor: grab;
-    transition: background-color 0.2s, opacity 0.3s, box-shadow 0.2s, top 0.05s linear, left 0.05s linear; /* [수정] top/left 트랜지션 추가 (단, 드래그 시 성능 저하될 수 있으니 주의) */
+    
+    /* ⭐ [성능 수정] top, left 애니메이션 제거 (랙/느림 문제 해결) */
+    transition: background-color 0.2s, opacity 0.3s, box-shadow 0.2s;
+    
     opacity: 0;
     transform: translate(-50%, -50%);
     z-index: 50;
