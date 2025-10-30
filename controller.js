@@ -121,10 +121,8 @@ document.addEventListener('DOMContentLoaded', () => {
         currentDecoList.forEach((deco, index) => {
             let pad = existingPads.get(deco.id);
 
-            // ⭐ [좌표 수정] PC가 X/Y를 바꿔서 해석하는 문제 대응 (PC -> 모바일)
-            // PC의 'y_mobile' 필드(사이트 좌우)를 컨트롤러 Y(상하)축으로 매핑
+            // [좌표 매핑]
             const mobileNormY = deco.y_mobile; 
-            // PC의 'x_mobile' 필드(사이트 상하)를 컨트롤러 X(좌우)축으로 매핑 (반전)
             const mobileNormX = 1.0 - deco.x_mobile;
             
             const pixelX = mobileNormX * frameWidth;
@@ -164,25 +162,30 @@ document.addEventListener('DOMContentLoaded', () => {
                     const decoId = deco.id; 
                     const isSelected = selectedDecoIds.includes(decoId);
 
-                    if (e.metaKey || e.ctrlKey) { // 다중 선택
-                        if (isSelected) {
-                            selectedDecoIds = selectedDecoIds.filter(id => id !== decoId);
-                        } else {
+                    // ⭐ [선택 로직 수정] 최대 2개 선택
+                    if (isSelected) {
+                        // 1. 이미 선택된 아이템을 탭 -> 선택 해제
+                        selectedDecoIds = selectedDecoIds.filter(id => id !== decoId);
+                    } else {
+                        // 2. 선택되지 않은 아이템을 탭
+                        if (selectedDecoIds.length < 2) {
+                            // 2a. 2개 미만일 때 -> 선택 추가
                             selectedDecoIds.push(decoId);
-                        }
-                    } else { // 단일 선택
-                        if (isSelected && selectedDecoIds.length === 1) {
-                            selectedDecoIds = []; // 해제
                         } else {
-                            selectedDecoIds = [decoId]; // 선택
+                            // 2b. 2개일 때 -> 아무것도 안 함 (최대 2개 유지)
+                            console.warn("최대 2개까지만 선택할 수 있습니다.");
                         }
                     }
                     
+                    // 3. 변경된 선택 상태 PC로 전송
                     sendCommandToFirestore('select_multi', { ids: selectedDecoIds });
                     
+                    // 4. 모든 패드의 'selected' UI 업데이트
                     document.querySelectorAll('.touch-pad').forEach(p => {
                         p.classList.toggle('selected', selectedDecoIds.includes(p.dataset.id));
                     });
+                    
+                    // 5. 하단 버튼 상태 업데이트
                     updateButtonDisabledState();
                 });
 
@@ -214,6 +217,7 @@ document.addEventListener('DOMContentLoaded', () => {
         for (const touch of e.changedTouches) {
             const targetPad = touch.target.closest('.touch-pad');
             
+            // [별도/동시 이동] 선택된 아이템만 드래그 가능
             if (targetPad && selectedDecoIds.includes(targetPad.dataset.id)) {
                 e.preventDefault(); 
                 const decoId = targetPad.dataset.id;
@@ -280,20 +284,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 const mobileNormX = newPadLeft / frameWidth;  // 컨트롤러 좌(0) ~ 우(1)
                 const mobileNormY = newPadTop / frameHeight; // 컨트롤러 위(0) ~ 아래(1)
                 
-                // ⭐ [좌표 수정] PC가 X/Y를 바꿔서 해석하는 문제 대응 (모바일 -> PC)
-                
-                // 1. 컨트롤러 좌(X=0)/우(X=1) -> 사이트 하(Y=1)/상(Y=0) (반전)
-                // 이 로직을 PC의 'x_mobile' 필드로 전송 (PC가 X를 Y로 해석)
+                // [좌표 매핑]
+                // 컨트롤러 좌/우 -> 사이트 상/하 (Y)
                 const logic_Site_TB = 1.0 - mobileNormX;
-
-                // 2. 컨트롤러 위(Y=0)/아래(Y=1) -> 사이트 좌(X=0)/우(X=1) (정방향)
-                // 이 로직을 PC의 'y_mobile' 필드로 전송 (PC가 Y를 X로 해석)
+                // 컨트롤러 위/아래 -> 사이트 좌/우 (X)
                 const logic_Site_LR = mobileNormY;
 
                 // 4. [성능] currentDecoList(로컬 상태)도 직접 업데이트 (깜박임 방지)
                 const deco = currentDecoList.find(d => d.id === decoId);
                 if (deco) { 
-                    // PC가 받을 필드명 기준으로 로컬 상태 업데이트
                     deco.x_mobile = logic_Site_TB;
                     deco.y_mobile = logic_Site_LR;
                 }
@@ -301,9 +300,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 sendCommandToFirestore('control_one', { 
                     id: decoId, 
                     action: 'move',
-                    // ⭐ [좌표 수정] PC가 X/Y를 바꿔 해석하므로, 값을 바꿔서 전송
-                    x_mobile: logic_Site_TB,
-                    y_mobile: logic_Site_LR
+                    x_mobile: logic_Site_TB, // PC의 x_mobile 필드에 사이트 상/하(Y) 로직 전송
+                    y_mobile: logic_Site_LR  // PC의 y_mobile 필드에 사이트 좌/우(X) 로직 전송
                 });
             }
         }
