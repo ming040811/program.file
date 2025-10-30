@@ -63,20 +63,19 @@ body {
      * [캔버스 크기 강제 축소]
      * - width: 100%: 부모(.container)의 90% 너비를 꽉 채움
      * - aspect-ratio: 9 / 16: 너비에 맞춰 9:16 높이를 자동 계산함
-     * - max-height: 55vh: (수정) 캔버스 최대 높이를 화면 높이의 55%로 제한 (크기 줄이기)
-     * - flex-grow/shrink 제거: 유연한 크기 조정 대신 고정된 비율/크기를 따름
+     * - max-height: 40vh: (수정) 캔버스 최대 높이를 화면 높이의 40%로 제한 (크기 줄이기)
      */
     width: 100%; 
     aspect-ratio: 9 / 16;
     
-    /* ⭐ [수정] 캔버스 크기를 줄이기 위해 vh(뷰포트 높이) 기준으로 최대 높이 설정 */
-    max-height: 55vh;
+    /* ⭐ [수정] 55vh -> 40vh (캔버스 크기 40% 수준으로 줄이기) */
+    max-height: 40vh;
 
     background-color: #ffffff;
     border-radius: 8px;
     overflow: visible; 
     
-    /* ⭐ [수정] flex-grow, flex-shrink, min-height 제거 */
+    /* [수정] flex-grow, flex-shrink, min-height 제거 */
     flex-shrink: 0; /* 기본값으로 복원 */
 }
 
