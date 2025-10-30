@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>나만의 동화 만들기 - 꾸미기 모드</title>
+    <title>나만의 동화 만들기 - 꾸미기 모드 (PC)</title>
     <link rel="stylesheet" href="style3.css">
 </head>
 <body>
@@ -17,59 +17,19 @@
     </header>
     
     <div class="app-main">
-        <aside class="asset-panel">
-            <div class="asset-container">
-                <div id="decorations" class="asset-list">
-                    <img src="img/사각형.png" class="asset-item" data-type="decoration" data-canvas-src="img/사각형.png" onerror="this.src='https://placehold.co/120x120/eee/ccc?text=사각형.png';">
-                    <img src="img/나비.png" class="asset-item" data-type="decoration" data-canvas-src="img/나비.png" onerror="this.src='https://placehold.co/120x120/eee/ccc?text=나비.png';">
-                </div>
-            </div>
-        </aside>
-
-        <main class="main-content">
-            <div class="canvas-wrapper">
-                <div id="canvas">
-                    <div class="snap-guide vertical-guide"></div>
-                    <div class="snap-guide horizontal-guide"></div>
-                </div>
-            </div>
-            
-            <div class="timeline">
-                <div class="timeline-strip">
-                    <div class="scene active" data-scene="1"></div><span class="arrow">→</span>
-                    <div class="scene" data-scene="2"></div><span class="arrow">→</span>
-                    <div class="scene" data-scene="3"></div><span class="arrow">→</span>
-                    <div class="scene" data-scene="4"></div><span class="arrow">→</span>
-                    <div class="scene" data-scene="5"></div><span class="arrow">→</span>
-                    <div class="scene" data-scene="6"></div><span class="arrow">→</span>
-                    <div class="scene" data-scene="7"></div><span class="arrow">→</span>
-                    <div class="scene" data-scene="8"></div>
-                </div>
-            </div>
-        </main>
-    </div>
-
-    <div id="qr-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center; flex-direction: column;">
-        <h2 style="color: white; margin-bottom: 20px;">스마트폰으로 QR 코드를 스캔하세요.</h2>
-        <div id="qrcode-container" style="
-            width: 256px; 
-            height: 256px; 
-            background: white; 
-            padding: 15px; 
-            border-radius: 5px;">
         </div>
-        <button onclick="document.getElementById('qr-modal').style.display = 'none';" 
-            style="margin-top: 20px; padding: 10px 20px; font-size: 16px; cursor: pointer;">닫기</button>
-    </div>
+
+    <div id="qr-modal" style="display: none; ...">
+        </div>
 
     <div id="limit-toast-notification" style="display: none;">
-        한 화면에는 최대 3개의 캐릭터만 추가할 수 있습니다. 다른 캐릭터를 추가하려면, 현재 화면에 있는 캐릭터 중 하나를 삭제해주세요.
-    </div>
+        </div>
 
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
 
     <script>
+      // Firebase 설정 (필수)
       const firebaseConfig = {
         apiKey: "AIzaSyBkCdi2LZvWoGGnv3dT8Kq76TOz42L4GDw",
         authDomain: "controlling-82b19.firebaseapp.com",
@@ -79,9 +39,11 @@
         appId: "1:153225611363:web:4a2669dedd056c27ce9056",
         measurementId: "G-QLXFYJGEHB"
       };
+    
       if (!firebase.apps.length) {
           firebase.initializeApp(firebaseConfig);
       }
+      
       const db = firebase.firestore();
     </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
