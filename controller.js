@@ -152,10 +152,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     pad.classList.add('selected');
                 }
 
-                // --- 4. [⭐️⭐️⭐️ 수정 ⭐️⭐️⭐️] ---
-                // 'click' 이벤트 리스너를 여기서 제거합니다.
-                // 'touchend'에서 탭(Tap)을 직접 감지하여 처리합니다.
-                // ------------------------------------
+                // 'touchend'에서 탭(Tap)을 직접 감지하므로 'click' 리스너 없음
 
                 touchPadsWrapper.appendChild(pad);
                 setTimeout(() => { pad.style.opacity = '1'; }, 10); 
@@ -174,9 +171,9 @@ document.addEventListener('DOMContentLoaded', () => {
     } // --- updateTouchPads 끝 ---
 
 
-    // --- 5. [⭐️⭐️⭐️ 수정됨 ⭐️⭐️⭐️] 멀티터치 이벤트 핸들러 ---
+    // --- 5. 멀티터치 이벤트 핸들러 ---
     
-    // [수정] 'touchstart'는 이제 '탭' 감지를 위해 *모든* 패드 터치를 등록합니다.
+    // 'touchstart'는 '탭' 감지를 위해 *모든* 패드 터치를 등록
     touchPadsWrapper.addEventListener('touchstart', (e) => {
         const frameRect = mainCanvasFrame.getBoundingClientRect();
         const frameWidth = frameRect.width;
@@ -185,9 +182,8 @@ document.addEventListener('DOMContentLoaded', () => {
         for (const touch of e.changedTouches) {
             const targetPad = touch.target.closest('.touch-pad');
             
-            // 패드를 터치했다면 (선택 여부와 관계없이)
             if (targetPad) {
-                // e.preventDefault(); // <-- 클릭(탭) 감지를 위해 여전히 제거된 상태여야 함
+                // e.preventDefault(); // (제거된 상태 유지)
 
                 const decoId = targetPad.dataset.id;
                 
@@ -199,7 +195,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     frameWidth: frameWidth,
                     frameHeight: frameHeight,
                     isThrottled: false,
-                    isDragging: false // <-- [⭐️ NEW] 탭/드래그 구분을 위한 플래그
+                    isDragging: false // 탭/드래그 구분을 위한 플래그
                 });
 
                 // 시각적 피드백: 선택된 아이템을 터치했을 때만 'active'
@@ -210,7 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }, { passive: false }); 
 
-    // [수정] 'touchmove'는 'isDragging' 플래그를 true로 설정합니다.
+    // 'touchmove'는 'isDragging' 플래그를 true로 설정
     touchPadsWrapper.addEventListener('touchmove', (e) => {
         if (activeTouches.size > 0) {
              e.preventDefault(); // 드래그 시작 시 스크롤 방지
@@ -220,16 +216,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const dragData = activeTouches.get(touch.identifier);
 
             if (dragData) {
-                // [⭐️ NEW] 손가락이 움직였으므로 '드래그'로 확정
+                // 손가락이 움직였으므로 '드래그'로 확정
                 dragData.isDragging = true; 
 
-                // --- (이하 드래그 로직은 이전과 동일) ---
-                
                 // 선택된 아이템만 드래그되도록 보장
                 if (!selectedDecoIds.includes(dragData.decoId)) {
                     continue; 
                 }
 
+                // --- (이하 드래그 로직) ---
                 const { pad, decoId, lastX, lastY, frameWidth, frameHeight } = dragData;
                 const dx = touch.clientX - lastX;
                 const dy = touch.clientY - lastY;
@@ -248,12 +243,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (dragData.isThrottled) {
                     continue; 
                 }
+
                 dragData.isThrottled = true;
                 setTimeout(() => {
                     if (activeTouches.has(touch.identifier)) {
                         activeTouches.get(touch.identifier).isThrottled = false;
                     }
-                }, 50); 
+                }, 30); // ⭐️⭐️⭐️ 50ms -> 30ms로 수정 (성능 향상) ⭐️⭐️⭐️
                 
                 const mobileNormX = newPadLeft / frameWidth;
                 const mobileNormY = newPadTop / frameHeight;
@@ -276,7 +272,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }, { passive: false }); 
 
-    // [수정] 'touchend'는 'isDragging' 플래그를 확인하여 '탭'을 감지합니다.
+    // 'touchend'는 'isDragging' 플래그를 확인하여 '탭'을 감지
     const touchEndOrCancel = (e) => {
         for (const touch of e.changedTouches) {
             const dragData = activeTouches.get(touch.identifier);
@@ -284,14 +280,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if(dragData) {
                 dragData.pad.classList.remove('active'); 
 
-                // [⭐️ NEW] 탭(Tap) 감지 로직
+                // [탭(Tap) 감지 로직]
                 // 드래그되지 않았다면(isDragging == false) '탭'으로 간주
                 if (dragData.isDragging === false) {
-                    // '클릭' 대신 'item_click' 명령을 여기서 전송
                     sendCommandToFirestore('item_click', { id: dragData.decoId });
                 }
             }
-            // 탭이든 드래그든, 터치가 끝났으므로 맵에서 제거
             activeTouches.delete(touch.identifier);
         }
     };
@@ -301,7 +295,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // --- 6. 버튼 이벤트 리스너 ---
-    // (이전과 동일)
     document.querySelectorAll('.control-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             if (selectedDecoIds.length === 0 || btn.disabled) return;
@@ -316,7 +309,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- 7. 삭제 버튼 ---
-    // (이전과 동일)
     deleteButton.addEventListener('click', () => {
         if (selectedDecoIds.length === 0 || deleteButton.disabled) return;
         sendCommandToFirestore('delete_multi');
