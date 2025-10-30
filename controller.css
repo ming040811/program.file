@@ -20,7 +20,9 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: flex-start;
+    
+    /* [수정] flex-start -> center로 변경 */
+    justify-content: center;
     
     height: 100vh;
     box-sizing: border-box;
@@ -40,7 +42,11 @@ body {
     height: 100%;
     max-height: calc(100vh - 30px);
     
-    justify-content: space-between;
+    /* [수정] space-between -> center로 변경 (버튼을 위로 올림) */
+    justify-content: center; 
+    /* [추가] 캔버스와 버튼 사이 간격 */
+    gap: 10px; 
+
     position: relative;
 }
 
@@ -56,7 +62,7 @@ body {
     border-radius: 8px;
     /* ⭐ box-shadow 제거 */
     
-    margin-bottom: 5px; 
+    /* [삭제] margin-bottom: 5px; (gap으로 대체) */
     
     overflow: visible; 
     flex-shrink: 1; 
@@ -100,7 +106,7 @@ body {
     color: transparent;
     font-size: 1px;
     cursor: grab;
-    transition: background-color 0.2s, opacity 0.3s, box-shadow 0.2s;
+    transition: background-color 0.2s, opacity 0.3s, box-shadow 0.2s, top 0.05s linear, left 0.05s linear; /* [수정] top/left 트랜지션 추가 (단, 드래그 시 성능 저하될 수 있으니 주의) */
     opacity: 0;
     transform: translate(-50%, -50%);
     z-index: 50;
