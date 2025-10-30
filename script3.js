@@ -49,7 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
             toastTimer = null;
         }, 3000);
     }
-    
+
     // =========================================================================
     // ⭐ 🚨통신 핵심 로직 (Firebase)🚨 ⭐
     // =========================================================================
@@ -190,7 +190,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // ⭐ [속도 개선]
         // syncStateToFirestore(); // <-- 제거 (메아리 방지)
-        // updateThumbnail(currentScene); // <-- 제거 (느린 작업)
+        updateThumbnail(currentScene); // 썸네일은 갱신
     }
 
     // --- [수정됨] 컨트롤러 버튼 조작 처리 함수 ---
@@ -244,7 +244,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateElementStyle(decoData);
         // ⭐ [속도 개선]
         // syncStateToFirestore(); // <-- 제거 (메아리 방지)
-        // updateThumbnail(currentScene); // <-- 제거 (느린 작업)
+        updateThumbnail(currentScene); // 썸네일은 갱신
     }
 
     // --- 아이템 스타일만 가볍게 업데이트하는 함수 ---
@@ -533,7 +533,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const startAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * (180 / Math.PI);
                 let startRotation = decoData.rotation;
                 document.onmousemove = function(e_move) {
-                    const currentAngle = Math.atan2(e_move.clientY - centerY, e_clientX - centerX) * (180 / Math.PI);
+                    const currentAngle = Math.atan2(e_move.clientY - centerY, e.clientX - centerX) * (180 / Math.PI);
                     let newRotation = startRotation + (currentAngle - startAngle);
                     const snapThreshold = 6;
                     const snappedAngle = Math.round(newRotation / 90) * 90;
