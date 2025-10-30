@@ -1,4 +1,4 @@
-ddocument.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', () => {
     // ❗️ index.html에서 'db' 객체가 초기화되어야 합니다.
     if (typeof db === 'undefined') {
         console.error("Firebase Firestore 'db' is not initialized.");
@@ -43,7 +43,6 @@ ddocument.addEventListener('DOMContentLoaded', () => {
 
     // --- 알림창 표시 함수 (유지) ---
     function showLimitToast() {
-        // ... (기존 코드와 동일) ...
         const toast = document.getElementById('limit-toast-notification');
         if (!toast) return;
         if (toastTimer) clearTimeout(toastTimer);
@@ -223,10 +222,13 @@ ddocument.addEventListener('DOMContentLoaded', () => {
              selectItem(id);
         }
         
-        if (selectedDecoId === null) return;
-        
-        decoData = storyData[currentScene].decorations.find(d => d.id === selectedDecoId);
-        if (!decoData) return;
+        // ⭐ [수정] id를 기준으로 데이터를 찾도록 변경
+        decoData = storyData[currentScene].decorations.find(d => d.id === id);
+        if (!decoData) {
+            // 만약 id로 못찾으면(멀티 컨트롤시) 기존 selectedId로 한번 더 시도
+            decoData = storyData[currentScene].decorations.find(d => d.id === selectedDecoId);
+            if (!decoData) return;
+        }
 
         const step = { rotate: 5, scale: 0.02 }; 
 
@@ -270,7 +272,13 @@ ddocument.addEventListener('DOMContentLoaded', () => {
                 storyData[currentScene].decorations.splice(index, 1);
                 const element = document.getElementById(id);
                 if (element) element.remove();
-                selectItem(null); // 삭제 후 선택 해제 및 동기화 (즉시 실행)
+                
+                // ⭐ [수정] 삭제된 아이템이 현재 선택된 아이템이면 선택 해제
+                if (selectedDecoId === id) {
+                    selectItem(null); // 삭제 후 선택 해제 및 동기화 (즉시 실행)
+                } else {
+                    syncStateToFirestore(); // (선택은 유지하고) 동기화만
+                }
                 updateThumbnail(currentScene); // 썸네일 즉시 업데이트
                 return; 
             }
@@ -282,7 +290,6 @@ ddocument.addEventListener('DOMContentLoaded', () => {
 
     // --- 2-1. 아이템 스타일만 가볍게 업데이트하는 함수 ---
     function updateElementStyle(decoData) {
-         // ... (기존 코드와 동일) ...
         const element = document.getElementById(decoData.id);
         if (!element) return;
         element.style.left = decoData.x + 'px';
@@ -303,7 +310,6 @@ ddocument.addEventListener('DOMContentLoaded', () => {
                 showLimitToast(); 
                 return;
             }
-            // ... (기존 newDeco 생성 로직 동일) ...
             const canvasImageSrc = item.dataset.canvasSrc || item.src; 
             let initialWidth = 200; 
             let initialHeight = 200;
@@ -324,13 +330,11 @@ ddocument.addEventListener('DOMContentLoaded', () => {
             storyData[currentScene].decorations.push(newDeco);
             renderScene(currentScene); // ❗️ 아이템 추가 시에는 전체 렌더링
             selectItem(newDeco.id);
-            // ❗️ syncStateToFirestore()는 renderScene과 selectItem에서 이미 호출됨
         });
     });
 
     // --- 5. 씬 렌더링 함수 ---
     function renderScene(sceneNumber) {
-        // ... (기존 코드와 동일) ...
         if (!canvas) return;
         const data = storyData[sceneNumber];
         
@@ -341,6 +345,12 @@ ddocument.addEventListener('DOMContentLoaded', () => {
         });
         
         data.decorations.forEach(createDecorationElement);
+        
+        // ⭐ [수정] 씬 전환 시 selectedDecoId가 유효한지 확인
+        const itemExists = data.decorations.some(d => d.id === selectedDecoId);
+        if (!itemExists) {
+            selectedDecoId = null;
+        }
         selectItem(selectedDecoId); 
         
         setTimeout(() => updateThumbnail(sceneNumber), 50); 
@@ -349,7 +359,6 @@ ddocument.addEventListener('DOMContentLoaded', () => {
 
     // --- 6. 장식 요소 생성 함수 ---
     function createDecorationElement(decoData) {
-        // ... (기존 코드와 동일) ...
          if (!canvas) return;
         const item = document.createElement('div');
         item.className = 'decoration-item';
@@ -385,8 +394,6 @@ ddocument.addEventListener('DOMContentLoaded', () => {
 
     // --- 7. 인터랙티브 기능 부여 함수 (PC 직접 조작) ---
     function makeInteractive(element) {
-        // ... (기존 코드와 완벽히 동일: 드래그, 리사이즈, 회전, 컨트롤 버튼) ...
-        // (내부의 closeDragElement, initResize 등에서 syncStateToFirestore() 호출 유지)
         const decoData = storyData[currentScene].decorations.find(d => d.id === element.id);
         if (!decoData) return;
 
@@ -408,7 +415,6 @@ ddocument.addEventListener('DOMContentLoaded', () => {
         };
 
         function elementDrag(e) {
-            // (스냅 가이드 로직 포함, 기존과 동일)
             if (verticalGuide) verticalGuide.style.display = 'none';
             if (horizontalGuide) horizontalGuide.style.display = 'none';
 
@@ -420,7 +426,6 @@ ddocument.addEventListener('DOMContentLoaded', () => {
             let newTop = element.offsetTop - pos2;
             let newLeft = element.offsetLeft - pos1;
 
-            // (스냅 로직 ...)
             const snapThreshold = 5; 
             if (!canvas) return;
             const canvasWidth = canvas.offsetWidth;
@@ -470,13 +475,11 @@ ddocument.addEventListener('DOMContentLoaded', () => {
         }
         
         // 크기 조절 (리사이즈)
-        // ... (initResize, getRotatedCorners, rotatePoint 함수 기존과 동일) ...
         element.querySelectorAll('.handle:not(.rotator)').forEach(handle => {
             handle.onmousedown = initResize;
         });
         
         function initResize(e) {
-            // (기존 리사이즈 로직 전체)
             e.preventDefault(); e.stopPropagation();
             const handleType = e.target.classList[1];
             const rect = element.getBoundingClientRect();
@@ -531,7 +534,6 @@ ddocument.addEventListener('DOMContentLoaded', () => {
         }
         
         // 회전 (로테이터 핸들)
-        // ... (기존 회전 로직 동일) ...
         const rotator = element.querySelector('.rotator');
         if (rotator) {
             rotator.onmousedown = function(e) {
@@ -561,7 +563,6 @@ ddocument.addEventListener('DOMContentLoaded', () => {
         }
 
         // 컨트롤 버튼 (반전, 삭제)
-        // ... (기존 로직 동일) ...
         const flipButton = element.querySelector('.flip');
         if (flipButton) {
             flipButton.addEventListener('click', (e) => {
@@ -584,7 +585,6 @@ ddocument.addEventListener('DOMContentLoaded', () => {
     
     // --- 8. 헬퍼 함수 (회전된 좌표 계산) ---
     function getRotatedCorners(rect, angle) {
-         // ... (기존 코드와 동일) ...
         const center = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
         const corners = {
             tl: { x: rect.left, y: rect.top }, tr: { x: rect.right, y: rect.top },
@@ -596,7 +596,6 @@ ddocument.addEventListener('DOMContentLoaded', () => {
         return corners;
     }
     function rotatePoint(point, center, angle) {
-         // ... (기존 코드와 동일) ...
         const dx = point.x - center.x;
         const dy = point.y - center.y;
         const newX = center.x + dx * Math.cos(angle) - dy * Math.sin(angle);
@@ -618,14 +617,13 @@ ddocument.addEventListener('DOMContentLoaded', () => {
             scenes.forEach(s => s.classList.remove('active'));
             scene.classList.add('active');
             currentScene = scene.dataset.scene;
-            selectedDecoId = null;
+            // selectedDecoId = null; // 씬 전환 시 선택 해제 (renderScene에서 처리)
             renderScene(currentScene); // 씬 전환 시 렌더링 (내부에서 syncState 호출)
         });
     });
     
     // --- 11. 타임라인 썸네일 업데이트 ---
     function updateThumbnail(sceneNumber) {
-        // ... (기존 코드와 동일) ...
         const sceneEl = document.querySelector(`.scene[data-scene="${sceneNumber}"]`);
         if (sceneEl) {
             sceneEl.innerHTML = ''; 
@@ -653,5 +651,5 @@ ddocument.addEventListener('DOMContentLoaded', () => {
 
     // 초기 렌더링 및 동기화
     renderScene(currentScene);
-    syncStateToFirestore();
+    // syncStateToFirestore(); // renderScene 내부에서 호출됨
 });
