@@ -88,7 +88,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    
     // 모바일 -> PC (조작 명령 수신 리스너)
     let lastCommandTimestamp = 0;
 
@@ -149,7 +148,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (qrcodeDiv && typeof QRCode !== 'undefined') {
                 new QRCode(qrcodeDiv, { text: controllerUrl, width: 256, height: 256 });
             }
-            syncStateToFirestore(); // QR 켤 때는 즉시 동기화
+            syncStateToFirestore(); 
         });
     }
 
@@ -188,9 +187,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         updateElementStyle(decoData);
         
-        // ⭐ [속도 개선]
-        // syncStateToFirestore(); // <-- 제거 (메아리 방지)
-        updateThumbnail(currentScene); // 썸네일은 갱신
+        syncStateToFirestore(); // 이동은 컨트롤러/PC 구분 없이 항상 동기화
+        updateThumbnail(currentScene);
     }
 
     // --- [수정됨] 컨트롤러 버튼 조작 처리 함수 ---
@@ -201,11 +199,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const step = { rotate: 5, scale: 0.02 }; 
         
         if (action === 'rotate') {
+            // ... (내용 동일)
             const direction = data.direction;
             if (direction === 'LEFT') { decoData.rotation -= step.rotate; }
             else if (direction === 'RIGHT') { decoData.rotation += step.rotate; }
             
         } else if (action === 'scale') {
+            // ... (내용 동일)
             const direction = data.direction;
             const factor = 1 + (direction === 'UP' ? step.scale : -step.scale);
             const element = document.getElementById(id);
@@ -219,6 +219,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 decoData.y -= deltaHeight / 2;
             }
         } else if (action === 'flip') {
+            // ... (내용 동일)
             decoData.scaleX *= -1;
 
         } else if (action === 'delete') {
@@ -235,20 +236,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     syncStateToFirestore(); // 선택 변경 없으므로 그냥 동기화
                 }
-                updateThumbnail(currentScene); // 삭제는 썸네일 즉시 반영
+                updateThumbnail(currentScene); 
                 return; 
             }
         }
 
         // 공통 업데이트 (삭제 제외)
         updateElementStyle(decoData);
-        // ⭐ [속도 개선]
-        // syncStateToFirestore(); // <-- 제거 (메아리 방지)
-        updateThumbnail(currentScene); // 썸네일은 갱신
+        syncStateToFirestore(); // 버튼 조작은 항상 동기화
+        updateThumbnail(currentScene);
     }
 
     // --- 아이템 스타일만 가볍게 업데이트하는 함수 ---
     function updateElementStyle(decoData) {
+        // ... (내용 동일)
         const element = document.getElementById(decoData.id);
         if (!element) return;
         element.style.left = decoData.x + 'px';
@@ -265,6 +266,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- 장식 아이템 추가 이벤트 핸들러 ---
     document.querySelectorAll('.asset-item[data-type="decoration"]').forEach(item => {
         item.addEventListener('click', () => {
+            // ... (내용 동일)
             if (storyData[currentScene].decorations.length >= 3) {
                 showLimitToast(); 
                 return;
@@ -287,7 +289,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 scaleX: 1,
             };
             storyData[currentScene].decorations.push(newDeco);
-            renderScene(currentScene); // 렌더씬 내부에서 selectItems -> syncState 호출
+            renderScene(currentScene); 
             
             // ⭐ [수정] 'pc' 소스로 selectItems 호출
             selectItems([newDeco.id], 'pc');
@@ -310,14 +312,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const newDecoIds = new Set(data.decorations.map(d => d.id));
         selectedDecoIds = selectedDecoIds.filter(id => newDecoIds.has(id));
         
-        // ⭐ [수정] 'pc' 소스로 selectItems 호출 (씬 변경은 PC 주도)
+        // ⭐ [수정] 'pc' 소스로 selectItems 호출
         selectItems(selectedDecoIds, 'pc'); 
         
-        setTimeout(() => updateThumbnail(sceneNumber), 50); // 썸네일은 즉시
+        setTimeout(() => updateThumbnail(sceneNumber), 50); 
     }
 
     // --- 장식 요소 생성 함수 ---
     function createDecorationElement(decoData) {
+         // ... (내용 동일)
          if (!canvas) return;
         const item = document.createElement('div');
         item.className = 'decoration-item';
@@ -327,25 +330,21 @@ document.addEventListener('DOMContentLoaded', () => {
         item.style.width = decoData.width + 'px';
         item.style.height = decoData.height + 'px';
         item.style.transform = `rotate(${decoData.rotation}deg)`;
-        
         const img = document.createElement('img');
         img.src = decoData.src;
         img.onerror = function() { 
             img.src = `https://placehold.co/${Math.round(decoData.width)}x${Math.round(decoData.height)}/eee/ccc?text=이미지+로드+실패`;
         };
         img.style.transform = `scaleX(${decoData.scaleX})`;
-
         const controls = document.createElement('div');
         controls.className = 'controls';
         controls.innerHTML = `<button class="flip" title="좌우반전"><img src="img/좌우반전.png" alt="좌우반전" onerror="this.parentNode.innerHTML='반전'"></button>
                                 <button class="delete" title="삭제"><img src="img/휴지통.png" alt="삭제" onerror="this.parentNode.innerHTML='삭제'"></button>`;
-        
         const handles = ['tl', 'tr', 'bl', 'br', 'rotator'].map(type => {
             const handle = document.createElement('div');
             handle.className = `handle ${type}`;
             return handle;
         });
-
         item.append(img, ...handles, controls);
         canvas.appendChild(item);
         makeInteractive(item);
@@ -403,6 +402,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         function elementDrag(e) {
+            // ... (내용 동일)
             if (verticalGuide) verticalGuide.style.display = 'none';
             if (horizontalGuide) horizontalGuide.style.display = 'none';
             pos1 = pos3 - e.clientX;
@@ -411,8 +411,6 @@ document.addEventListener('DOMContentLoaded', () => {
             pos4 = e.clientY;
             let newTop = element.offsetTop - pos2;
             let newLeft = element.offsetLeft - pos1;
-            
-            // ... (스냅 로직)
             const snapThreshold = 5; 
             if (!canvas) return;
             const canvasWidth = canvas.offsetWidth;
@@ -443,22 +441,20 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (!snappedX && verticalGuide) verticalGuide.style.display = 'none';
             if (!snappedY && horizontalGuide) horizontalGuide.style.display = 'none';
-            
             element.style.top = newTop + "px";
             element.style.left = newLeft + "px";
         }
         
         function closeDragElement() {
+            // ... (내용 동일)
             document.onmouseup = null;
             document.onmousemove = null;
             if (verticalGuide) verticalGuide.style.display = 'none';
             if (horizontalGuide) horizontalGuide.style.display = 'none';
-            
             decoData.x = element.offsetLeft;
             decoData.y = element.offsetTop;
-            
-            updateThumbnail(currentScene); // PC 드래그는 썸네일 즉시 반영
-            syncStateToFirestore(); // PC 드래그는 즉시 동기화
+            updateThumbnail(currentScene);
+            syncStateToFirestore(); 
         }
         
         // 크기 조절 (리사이즈)
@@ -467,8 +463,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         
         function initResize(e) {
+            // ... (내용 동일)
             e.preventDefault(); e.stopPropagation();
-            // ... (리사이즈 로직) ...
             const handleType = e.target.classList[1];
             const rect = element.getBoundingClientRect();
             const angleRad = decoData.rotation * (Math.PI / 180);
@@ -517,7 +513,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 decoData.x = element.offsetLeft;
                 decoData.y = element.offsetTop;
                 updateThumbnail(currentScene); 
-                syncStateToFirestore(); // PC 리사이즈는 즉시 동기화
+                syncStateToFirestore(); 
             };
         }
         
@@ -525,7 +521,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const rotator = element.querySelector('.rotator');
         if (rotator) {
             rotator.onmousedown = function(e) {
-                // ... (회전 로직) ...
+                // ... (내용 동일)
                 e.preventDefault(); e.stopPropagation();
                 const rect = element.getBoundingClientRect();
                 const centerX = rect.left + rect.width / 2;
@@ -546,7 +542,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.onmouseup = function() {
                     document.onmousemove = null; document.onmouseup = null;
                     updateThumbnail(currentScene);
-                    syncStateToFirestore(); // PC 회전은 즉시 동기화
+                    syncStateToFirestore(); 
                 };
             };
         }
@@ -555,6 +551,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const flipButton = element.querySelector('.flip');
         if (flipButton) {
             flipButton.addEventListener('click', (e) => {
+                // ... (내용 동일)
                 e.stopPropagation();
                 decoData.scaleX *= -1;
                 updateElementStyle(decoData);
