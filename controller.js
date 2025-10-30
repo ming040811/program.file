@@ -121,15 +121,11 @@ document.addEventListener('DOMContentLoaded', () => {
         currentDecoList.forEach((deco, index) => {
             let pad = existingPads.get(deco.id);
 
-            // ⭐ [좌표 수정] 사용자가 요청한 새 매핑 적용 (PC -> 모바일)
-            // deco.x_mobile = PC X (사이트 좌우)
-            // deco.y_mobile = PC Y (사이트 상하)
-
-            // 1. PC X (사이트 좌우 0~1) -> 모바일 Y (컨트롤러 상하 0~1)
-            const mobileNormY = deco.x_mobile;
-
-            // 2. PC Y (사이트 상하 0~1) -> 모바일 X (컨트롤러 우좌 1~0, 반전)
-            const mobileNormX = 1.0 - deco.y_mobile;
+            // ⭐ [좌표 수정] PC가 X/Y를 바꿔서 해석하는 문제 대응 (PC -> 모바일)
+            // PC의 'y_mobile' 필드(사이트 좌우)를 컨트롤러 Y(상하)축으로 매핑
+            const mobileNormY = deco.y_mobile; 
+            // PC의 'x_mobile' 필드(사이트 상하)를 컨트롤러 X(좌우)축으로 매핑 (반전)
+            const mobileNormX = 1.0 - deco.x_mobile;
             
             const pixelX = mobileNormX * frameWidth;
             const pixelY = mobileNormY * frameHeight;
@@ -218,7 +214,6 @@ document.addEventListener('DOMContentLoaded', () => {
         for (const touch of e.changedTouches) {
             const targetPad = touch.target.closest('.touch-pad');
             
-            // ⭐ [선택 수정] 'selectedDecoIds'에 포함된 아이템만 드래그를 활성화합니다.
             if (targetPad && selectedDecoIds.includes(targetPad.dataset.id)) {
                 e.preventDefault(); 
                 const decoId = targetPad.dataset.id;
@@ -270,7 +265,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // 2. [성능] 네트워크 전송은 50ms 마다 한번씩만 (스로틀링)
                 if (dragData.isThrottled) {
-                    continue; // 50ms가 지나지 않았으면 전송 안함
+                    continue; 
                 }
 
                 dragData.isThrottled = true;
@@ -278,33 +273,37 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (activeTouches.has(touch.identifier)) {
                         activeTouches.get(touch.identifier).isThrottled = false;
                     }
-                }, 50); // 50ms (0.05초) 간격
+                }, 50); // 50ms
                 
 
-                // 3. [좌표] 90도 회전 및 반전된 정규화 좌표 전송
+                // 3. [좌표] 정규화
                 const mobileNormX = newPadLeft / frameWidth;  // 컨트롤러 좌(0) ~ 우(1)
                 const mobileNormY = newPadTop / frameHeight; // 컨트롤러 위(0) ~ 아래(1)
                 
-                // ⭐ [좌표 수정] 사용자가 요청한 새 매핑 적용 (모바일 -> PC)
+                // ⭐ [좌표 수정] PC가 X/Y를 바꿔서 해석하는 문제 대응 (모바일 -> PC)
+                
+                // 1. 컨트롤러 좌(X=0)/우(X=1) -> 사이트 하(Y=1)/상(Y=0) (반전)
+                // 이 로직을 PC의 'x_mobile' 필드로 전송 (PC가 X를 Y로 해석)
+                const logic_Site_TB = 1.0 - mobileNormX;
 
-                // 1. 컨트롤러 위(Y=0)/아래(Y=1) -> 사이트 좌(X=0)/우(X=1) (정방향)
-                const pcNormX = mobileNormY;
-
-                // 2. 컨트롤러 좌(X=0)/우(X=1) -> 사이트 하(Y=1)/상(Y=0) (반전)
-                const pcNormY = 1.0 - mobileNormX;
+                // 2. 컨트롤러 위(Y=0)/아래(Y=1) -> 사이트 좌(X=0)/우(X=1) (정방향)
+                // 이 로직을 PC의 'y_mobile' 필드로 전송 (PC가 Y를 X로 해석)
+                const logic_Site_LR = mobileNormY;
 
                 // 4. [성능] currentDecoList(로컬 상태)도 직접 업데이트 (깜박임 방지)
                 const deco = currentDecoList.find(d => d.id === decoId);
                 if (deco) { 
-                    deco.x_mobile = pcNormX;
-                    deco.y_mobile = pcNormY;
+                    // PC가 받을 필드명 기준으로 로컬 상태 업데이트
+                    deco.x_mobile = logic_Site_TB;
+                    deco.y_mobile = logic_Site_LR;
                 }
                 
                 sendCommandToFirestore('control_one', { 
                     id: decoId, 
                     action: 'move',
-                    x_mobile: pcNormX,
-                    y_mobile: pcNormY 
+                    // ⭐ [좌표 수정] PC가 X/Y를 바꿔 해석하므로, 값을 바꿔서 전송
+                    x_mobile: logic_Site_TB,
+                    y_mobile: logic_Site_LR
                 });
             }
         }
