@@ -251,7 +251,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (activeTouches.has(touch.identifier)) {
                         activeTouches.get(touch.identifier).isThrottled = false;
                     }
-                }, 30); // 30ms
+                }, 30); // 30ms (사이트가 부드럽게 움직이도록)
 
                 // 3. PC로 보낼 좌표 계산
                 const mobileNormX = newPadLeft / frameWidth;
@@ -289,9 +289,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         justReleasedPadId = null;
                         justReleasedTimer = null;
                     }, 400); // 400ms (0.4초)
-
-                    // [⭐️ 제거] 'touchend'에서 'control_one'을 보내는 로직 제거
-                    // (이미 'touchmove'에서 30ms마다 보냈기 때문)
 
                 } else {
                     // [탭] 드래그되지 않았으므로 'item_click' 전송
