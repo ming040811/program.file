@@ -1,4 +1,7 @@
+// controller.js (최종 수정 버전 - 100ms 스로틀링 적용)
+
 document.addEventListener('DOMContentLoaded', () => {
+    // ❗️ (Firebase 초기화 검사 생략)
     if (typeof db === 'undefined') {
         console.error("Firebase Firestore 'db' is not initialized.");
         alert("Firebase 연결 실패! HTML을 확인하세요.");
@@ -17,7 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const CONTROLLER_REF = db.collection('controllers').doc(SESSION_ID);
 
-    // --- DOM 요소 ---
+    // --- DOM 요소 및 변수 (생략) ---
     const mainCanvasFrame = document.querySelector('.main-canvas-frame');
     const touchPadsWrapper = document.querySelector('.touch-pads-wrapper');
     const deleteButton = document.getElementById('delete-selected-deco');
@@ -27,9 +30,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentDecoList = []; 
     let selectedDecoIds = []; 
     const activeTouches = new Map(); 
-
-    // --- [⭐️ 삭제됨] justReleasedPadId, justReleasedTimer 변수 삭제 ---
-    // 모바일 패드 달라붙음/튕김 방지를 위해 로직 단순화
 
     // =========================================================================
     // ⭐ 🚨통신 핵심 로직 (Firebase)🚨 ⭐
@@ -60,13 +60,14 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         
         try {
+            // [참고] Set 작업은 문서 전체를 덮어쓰므로 1회의 '쓰기'로 계산됩니다.
             await CONTROLLER_REF.set({ command: command }, { merge: true });
         } catch (error) {
             console.error("Error sending command to Firestore:", error);
         }
     }
 
-    // --- 2. PC -> 모바일 (상태 수신) ---
+    // --- 2. PC -> 모바일 (상태 수신) (생략) ---
     function listenForPCState() {
         CONTROLLER_REF.onSnapshot((doc) => {
             if (doc.exists && doc.data().pcState) {
@@ -90,7 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // =========================================================================
-    // ⭐ DOM Reconciliation & 달라붙음 방지 로직 (수정) ⭐
+    // ⭐ DOM Reconciliation & 달라붙음 방지 로직 ⭐
     // =========================================================================
     function updateTouchPads() {
         if (mainCanvasFrame.offsetWidth === 0) return; 
@@ -98,12 +99,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const frameWidth = mainCanvasFrame.offsetWidth;
         const frameHeight = mainCanvasFrame.offsetHeight;
         
-        // 현재 드래그 중인 아이템 ID 목록
         const draggingIds = new Set(Array.from(activeTouches.values()).map(data => data.decoId));
         
         const existingPads = new Map();
         touchPadsWrapper.querySelectorAll('.touch-pad').forEach(pad => {
-            existingPads.set(pad.dataset.id, pad);
+            existingPings.set(pad.dataset.id, pad);
         });
 
         // --- 1. currentDecoList (새 상태)를 기준으로 DOM 업데이트 및 추가 ---
@@ -118,8 +118,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (pad) {
                 existingPads.delete(deco.id); 
 
-                // 🚨 [핵심 수정] 드래그 중인 아이템이 아니라면, PC의 좌표로 업데이트합니다. 
-                // 이 로직을 단순화해야 달라붙는 현상과 롤백 현상을 최소화할 수 있습니다.
+                // 🚨 드래그 중인 아이템이 아니라면, PC의 좌표로 업데이트합니다.
                 if (!draggingIds.has(deco.id)) {
                     pad.style.left = `${pixelX}px`;
                     pad.style.top = `${pixelY}px`;
@@ -128,7 +127,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 pad.classList.toggle('selected', selectedDecoIds.includes(deco.id));
 
             } else {
-                // 1b. 새 패드 생성 (생략)
+                // 1b. 새 패드 생성 (로직 생략)
                 pad = document.createElement('button');
                 pad.classList.add('touch-pad');
                 pad.id = `touch-pad-${deco.id}`;
@@ -204,7 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }, { passive: false }); 
 
-    // 'touchmove' (경계 제한 로직 제거 상태 유지)
+    // 'touchmove' 
     touchPadsWrapper.addEventListener('touchmove', (e) => {
         if (activeTouches.size > 0) {
               e.preventDefault(); 
@@ -243,7 +242,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 dragData.finalNormX = logic_Site_TB;
                 dragData.finalNormY = logic_Site_LR;
 
-                // 4. 30ms 스로틀링
+                // 4. 100ms 스로틀링 (할당량 초과 방지)
                 if (dragData.isThrottled) {
                     continue; 
                 }
@@ -252,7 +251,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (activeTouches.has(touch.identifier)) {
                         activeTouches.get(touch.identifier).isThrottled = false;
                     }
-                }, 30); 
+                }, 100); // ⭐️ [핵심 수정] 100ms로 증가 ⭐️
 
                 // 5. PC로 'control_one' (move) 명령 전송
                 sendCommandToFirestore('control_one', { 
@@ -265,7 +264,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }, { passive: false }); 
 
-    // 'touchend' (롤백 방지 타이머 제거)
+    // 'touchend' (생략)
     const touchEndOrCancel = (e) => {
         for (const touch of e.changedTouches) {
             const dragData = activeTouches.get(touch.identifier);
@@ -274,8 +273,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 dragData.pad.classList.remove('active'); 
 
                 if (dragData.isDragging === true) {
-                    // [⭐️ 롤백 방지 타이머 제거] - PC의 경계 제한 로직으로 롤백 방지 대체
-
                     // 최종 위치 1회 전송 (누락 방지)
                     if (dragData.finalNormX !== -1) {
                          sendCommandToFirestore('control_one', { 
