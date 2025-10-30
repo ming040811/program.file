@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const CONTROLLER_REF = db.collection('controllers').doc(SESSION_ID);
 
-    // ... (DOM 요소 및 storyData 정의는 이전과 동일) ...
+    // --- DOM 요소 및 데이터 ---
     const canvas = document.getElementById('canvas');
     const openControllerBtn = document.getElementById('open-controller-btn');
     const verticalGuide = document.querySelector('.vertical-guide');
@@ -32,11 +32,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let toastTimer = null;
 
     // --- (⭐️ 제거 ⭐️) ---
-    // let throttleSyncTimer = null; // 이 줄 제거
+    // let throttleSyncTimer = null; // 쓰로틀 타이머 변수 제거
     // --- (⭐️ 제거 ⭐️) ---
 
 
-    // ... (showLimitToast 함수는 이전과 동일) ...
+    // --- 알림창 표시 함수 ---
     function showLimitToast() {
         const toast = document.getElementById('limit-toast-notification');
         if (!toast) return;
@@ -57,10 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!canvas || canvas.offsetWidth === 0 || canvas.offsetHeight === 0) return;
 
         // (⭐️ 제거 ⭐️)
-        // if (throttleSyncTimer) {
-        //     clearTimeout(throttleSyncTimer);
-        //     throttleSyncTimer = null;
-        // } // 이 블록 제거
+        // 쓰로틀 타이머 관련 if (throttleSyncTimer) { ... } 블록 제거
 
         const canvasWidth = canvas.offsetWidth;
         const canvasHeight = canvas.offsetHeight;
@@ -91,14 +88,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- (⭐️ 제거 ⭐️) 쓰로틀링된 동기화 요청 함수 ---
-    // function requestSyncThrottled() { ... } // 이 함수 전체 제거
+    // --- (⭐️ 제거 ⭐️) ---
+    // function requestSyncThrottled() { ... } // 쓰로틀 함수 전체 제거
+    // --- (⭐️ 제거 ⭐️) ---
     
     
     // 모바일 -> PC (조작 명령 수신 리스너)
     let lastCommandTimestamp = 0;
     function listenForControlCommands() {
-        // ... (내용 동일) ...
         CONTROLLER_REF.onSnapshot((doc) => {
             if (doc.exists && doc.data().command) {
                 const command = doc.data().command;
@@ -141,7 +138,6 @@ document.addEventListener('DOMContentLoaded', () => {
     listenForControlCommands(); 
     
     if (openControllerBtn) {
-        // ... (내용 동일) ...
         openControllerBtn.addEventListener('click', () => {
             if (qrModal) qrModal.style.display = 'flex';
             const baseUrl = window.location.href.substring(0, window.location.href.lastIndexOf('/'));
@@ -150,13 +146,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (qrcodeDiv && typeof QRCode !== 'undefined') {
                 new QRCode(qrcodeDiv, { text: controllerUrl, width: 256, height: 256 });
             }
-            syncStateToFirestore(); 
+            syncStateToFirestore(); // QR 켤 때는 즉시 동기화
         });
     }
 
     // --- 컨트롤러 클릭 처리 함수 ---
     function handleItemClick(id) {
-        // ... (내용 동일) ...
         if (!id) return;
         const isSelected = selectedDecoIds.includes(id);
 
@@ -177,12 +172,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- 아이템 선택 처리 함수 ---
     function selectItems(ids = [], source = 'pc') {
         selectedDecoIds = ids;
-
         document.querySelectorAll('.decoration-item').forEach(el => {
             el.classList.toggle('selected', selectedDecoIds.includes(el.id));
         });
         
-        syncStateToFirestore(); // [중요] 항상 즉시 동기화
+        // [중요] 선택/해제는 항상 즉시 동기화
+        syncStateToFirestore(); 
     }
 
     // --- [⭐️⭐️⭐️ 수정됨 ⭐️⭐️⭐️] 모바일 좌표계로 아이템 이동 처리 ---
@@ -201,8 +196,8 @@ document.addEventListener('DOMContentLoaded', () => {
         updateElementStyle(decoData);
         updateThumbnail(currentScene); 
         
-        // ⭐ [수정] 쓰로틀링된 동기화 대신, '즉시' 동기화를 호출합니다.
-        // requestSyncThrottled(); // <-- 이 줄 대신
+        // ⭐ [수정] 쓰로틀링(지연) 대신, '즉시' 동기화를 호출합니다.
+        // requestSyncThrottled(); // <-- 이 줄 제거
         syncStateToFirestore(); // <-- 이 함수 사용
     }
 
@@ -213,37 +208,44 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const step = { rotate: 5, scale: 0.02 }; 
         
-        if (action === 'rotate') {
-            // ... (회전 로직 동일) ...
-            const direction = data.direction;
-            if (direction === 'LEFT') { decoData.rotation -= step.rotate; }
-            else if (direction === 'RIGHT') { decoData.rotation += step.rotate; }
-            
-        } else if (action === 'scale') {
-            // ... (크기 조절 로직 동일) ...
-            const direction = data.direction;
-            const factor = 1 + (direction === 'UP' ? step.scale : -step.scale);
-            const currentWidth = decoData.width;
-            const currentHeight = decoData.height;
-            if (currentWidth * factor > 20 && currentHeight * factor > 20) {
-                const deltaWidth = (currentWidth * factor) - currentWidth;
-                const deltaHeight = (currentHeight * factor) - currentHeight;
-                decoData.width *= factor;
-                decoData.height *= factor;
-                decoData.x -= deltaWidth / 2;
-                decoData.y -= deltaHeight / 2;
+        if (action === 'rotate' || action === 'scale' || action === 'flip') {
+             // (로직 동일)
+            if (action === 'rotate') {
+                const direction = data.direction;
+                if (direction === 'LEFT') { decoData.rotation -= step.rotate; }
+                else if (direction === 'RIGHT') { decoData.rotation += step.rotate; }
+            } else if (action === 'scale') {
+                const direction = data.direction;
+                const factor = 1 + (direction === 'UP' ? step.scale : -step.scale);
+                const currentWidth = decoData.width;
+                const currentHeight = decoData.height;
+                if (currentWidth * factor > 20 && currentHeight * factor > 20) {
+                    const deltaWidth = (currentWidth * factor) - currentWidth;
+                    const deltaHeight = (currentHeight * factor) - currentHeight;
+                    decoData.width *= factor;
+                    decoData.height *= factor;
+                    decoData.x -= deltaWidth / 2;
+                    decoData.y -= deltaHeight / 2;
+                }
+            } else if (action === 'flip') {
+                decoData.scaleX *= -1;
             }
-        } else if (action === 'flip') {
-            decoData.scaleX *= -1;
+            
+            updateElementStyle(decoData);
+            updateThumbnail(currentScene);
+            
+            // ⭐ [수정] 쓰로틀링(지연) 대신, '즉시' 동기화를 호출합니다.
+            // requestSyncThrottled(); // <-- 이 줄 제거
+            syncStateToFirestore(); // <-- 이 함수 사용
 
         } else if (action === 'delete') {
-            // ... (삭제 로직 동일 - selectItems/syncStateToFirestore가 이미 호출됨) ...
             const index = storyData[currentScene].decorations.findIndex(d => d.id === id);
             if (index > -1) {
                 storyData[currentScene].decorations.splice(index, 1);
                 const element = document.getElementById(id);
                 if (element) element.remove();
                 
+                // [중요] 삭제는 즉시 동기화 (selectItems 또는 syncStateToFirestore 호출)
                 if (selectedDecoIds.includes(id)) {
                     selectedDecoIds = selectedDecoIds.filter(i => i !== id);
                     selectItems(selectedDecoIds, 'pc'); 
@@ -254,14 +256,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 return; 
             }
         }
-
-        // 공통 업데이트 (삭제 제외)
-        updateElementStyle(decoData);
-        updateThumbnail(currentScene);
-        
-        // ⭐ [수정] 쓰로틀링된 동기화 대신, '즉시' 동기화를 호출합니다.
-        // requestSyncThrottled(); // <-- 이 줄 대신
-        syncStateToFirestore(); // <-- 이 함수 사용
     }
 
     // --- (이하 나머지 코드는 이전과 동일합니다) ---
