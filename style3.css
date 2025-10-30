@@ -294,7 +294,7 @@ body {
     color: white;
     border-radius: 8px;
 
-    display: flex; /* 토스트가 기본적으로 flexbox 속성을 가지도록 명시 */
+    display: flex; 
     align-items: center;
     justify-content: center;
 
@@ -311,26 +311,26 @@ body {
     z-index: 2000;
 }
 
-/* 🚀 [수정됨] 큐알코드 닫기 버튼 스타일 */
+/* 🚀 [최종 크기 수정] 큐알코드 닫기 버튼 스타일 */
 .qrcode-close-button {
-    /* 요청사항 반영 */
-    height: 30px; /* 세로 크기 유지 */
-    width: 70px; /* 가로 길이 살짝 늘림 (기존 20px 패딩 고려하여 조정) */
+    /* 크기 확대: 30px -> 40px */
+    height: 40px; 
+    width: 85px; /* 가로 길이 확대 */
+    
     background-color: #4F99B2; /* 요청 색상 */
     color: white; /* 요청 색상 */
-    border-radius: 5px; /* 끝을 조금만 둥글게 */
+    border-radius: 5px; /* 조금만 둥글게 */
     
-    /* 기본 버튼 스타일 */
+    /* 폰트 크기 확대: 14px -> 16px */
     border: none;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 16px; 
     font-weight: bold;
     
-    /* 텍스트 중앙 정렬 */
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0 10px; /* 내부 패딩을 좁게 재설정 */
+    padding: 0 10px;
 }
 
 .qrcode-close-button:hover {
