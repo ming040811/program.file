@@ -72,14 +72,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 sceneInfoEl.textContent = `Scene ${state.scene} 연결됨`;
                 currentDecoList = state.decoList || [];
-                selectedDecoIds = state.selectedIds || [];
 
-                updateTouchPads();
+                // ⭐ [선택 로직 수정]
+                // PC로부터 selectedIds 상태를 받지 않습니다. (레이스 컨디션 방지)
+                // 컨트롤러의 클릭/탭이 selectedDecoIds의 유일한 변경 소스가 됩니다.
+                // selectedDecoIds = state.selectedIds || []; // <-- 이 줄을 비활성화
+                
+                // PC에서 decoList가 변경되면(예: 씬 변경), 
+                // 로컬에 저장된 selectedDecoIds와 비교하여 UI를 업데이트합니다.
+                updateTouchPads(); 
 
             } else {
                 sceneInfoEl.textContent = "PC 연결 대기 중...";
                 currentDecoList = [];
-                selectedDecoIds = [];
+                // 씬이 리셋되면 로컬 선택도 리셋합니다.
+                selectedDecoIds = []; 
                 updateTouchPads();
             }
         }, (error) => {
@@ -137,6 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     pad.style.top = `${pixelY}px`;
                 }
                 
+                // [선택 상태] 로컬 selectedDecoIds 기준으로 UI 업데이트
                 pad.classList.toggle('selected', selectedDecoIds.includes(deco.id));
 
             } else {
@@ -150,6 +158,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 pad.style.left = `${pixelX}px`;
                 pad.style.top = `${pixelY}px`;
                 
+                // [선택 상태] 로컬 selectedDecoIds 기준으로 UI 업데이트
                 if (selectedDecoIds.includes(deco.id)) {
                     pad.classList.add('selected');
                 }
@@ -160,9 +169,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     e.preventDefault(); 
                     
                     const decoId = deco.id; 
+                    // [선택 상태] 글로벌 selectedDecoIds를 직접 읽고 수정
                     const isSelected = selectedDecoIds.includes(decoId);
 
-                    // ⭐ [선택 로직 수정] 최대 2개 선택
+                    // ⭐ [선택 로직] 최대 2개 선택
                     if (isSelected) {
                         // 1. 이미 선택된 아이템을 탭 -> 선택 해제
                         selectedDecoIds = selectedDecoIds.filter(id => id !== decoId);
@@ -201,7 +211,7 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => { pad.remove(); }, 300);
         });
 
-        // --- 3. 버튼 활성화/비활성화 ---
+        // --- 3. 버튼 활성화/비활성화 (onSnapshot에서 호출될 때도 실행) ---
         updateButtonDisabledState();
 
     } // --- updateTouchPads 끝 ---
@@ -285,9 +295,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const mobileNormY = newPadTop / frameHeight; // 컨트롤러 위(0) ~ 아래(1)
                 
                 // [좌표 매핑]
-                // 컨트롤러 좌/우 -> 사이트 상/하 (Y)
                 const logic_Site_TB = 1.0 - mobileNormX;
-                // 컨트롤러 위/아래 -> 사이트 좌/우 (X)
                 const logic_Site_LR = mobileNormY;
 
                 // 4. [성능] currentDecoList(로컬 상태)도 직접 업데이트 (깜박임 방지)
@@ -341,6 +349,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         sendCommandToFirestore('delete_multi');
         
+        // [선택 상태] 삭제 명령 후 로컬 선택도 즉시 리셋
         selectedDecoIds = []; 
         
         document.querySelectorAll('.touch-pad.selected').forEach(pad => {
