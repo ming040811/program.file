@@ -2,38 +2,65 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>모바일 컨트롤러</title>
     <link rel="stylesheet" href="controller.css">
 </head>
 <body>
 
-    <div class="touch-joystick-container">
-        <p class="guide-text">아이템 선택 및 이동 (활성화된 점을 드래그)</p>
-        <div class="touch-pads-wrapper">
-            <button class="touch-pad" id="touch-pad-1" data-index="1" title="아이템 1 선택 및 이동"></button>
-            <button class="touch-pad" id="touch-pad-2" data-index="2" title="아이템 2 선택 및 이동"></button>
-            <button class="touch-pad" id="touch-pad-3" data-index="3" title="아이템 3 선택 및 이동"></button>
+    <div class="container">
+        <div class="main-canvas-frame">
+            <div class="scene-info">연결 대기 중...</div>
+            
+            <div class="touch-pads-wrapper">
+                </div>
+        </div>
+
+        <div class="bottom-controls">
+            <button class="delete-btn" id="delete-selected-deco" disabled><span>삭제</span></button>
+
+            <div class="control-group-wrapper">
+                
+                <div class="control-group">
+                    <button class="control-btn align" data-action="align" data-direction="UP" title="좌우반전" disabled>↔</button>
+                    <p><span>좌우반전</span></p>
+                    <button class="control-btn align" data-action="align" data-direction="DOWN" title="좌우반전" disabled>↔</button>
+                </div>
+            
+                <div class="control-group">
+                    <button class="control-btn scale" data-action="scale" data-direction="UP" title="크게" disabled><span>+</span></button>
+                    <p><span>크기</span></p>
+                    <button class="control-btn scale" data-action="scale" data-direction="DOWN" title="작게" disabled><span>-</span></button>
+                </div>
+
+                <div class="control-group">
+                    <button class="control-btn rotate" data-action="rotate" data-direction="LEFT" title="반시계 회전" disabled>⟲</button>
+                    <p><span>회전</span></p>
+                    <button class="control-btn rotate" data-action="rotate" data-direction="RIGHT" title="시계 회전" disabled>⟳</button>
+                </div>
+            </div>
         </div>
     </div>
 
-    <div class="control-panel">
-        <div class="scale-rotate-wrapper">
-            <div class="control-group">
-                <p>회전</p>
-                <button class="control-btn rotate" data-action="rotate" data-direction="LEFT" title="반시계 회전">⟲</button>
-                <button class="control-btn rotate" data-action="rotate" data-direction="RIGHT" title="시계 회전">⟳</button>
-            </div>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
 
-            <div class="control-group">
-                <p>크기</p>
-                <button class="control-btn scale" data-action="scale" data-direction="UP" title="크게">➕</button>
-                <button class="control-btn scale" data-action="scale" data-direction="DOWN" title="작게">➖</button>
-            </div>
-        </div>
-    </div>
-
+    <script>
+      const firebaseConfig = {
+        apiKey: "AIzaSyBkCdi2LZvWoGGnv3dT8Kq76TOz42L4GDw",
+        authDomain: "controlling-82b19.firebaseapp.com",
+        projectId: "controlling-82b19",
+        storageBucket: "controlling-82b19.firebasestorage.app",
+        messagingSenderId: "153225611363",
+        appId: "1:153225611363:web:4a2669dedd056c27ce9056",
+        measurementId: "G-QLXFYJGEHB"
+      };
+      if (!firebase.apps.length) {
+          firebase.initializeApp(firebaseConfig);
+      }
+      // controller.js에서 사용할 db 객체 선언
+      const db = firebase.firestore();
+    </script>
     <script src="controller.js"></script>
 </body>
-</html>
 </html>
