@@ -60,15 +60,13 @@ body {
     position: relative;
     
     /*
-     * ⭐ [수정] 캔버스 크기 조절 방식 변경 
-     * 'max-height' (높이 제한) 대신 'width' (너비)를 70%로 줄여서
-     * 'aspect-ratio'가 9:16 비율을 유지하며 높이도 자동으로 줄이도록 수정
+     * ⭐ [수정] 캔버스 크기 살짝 키우기
+     * 'width' (너비)를 70%에서 80%로 수정
      */
-    width: 70%; /* 100% -> 70% (너비를 줄여서 크기 조절) */
+    width: 80%; /* 70% -> 80% */
     aspect-ratio: 9 / 16;
     
-    /* ⭐ [수정] 충돌을 일으키던 max-height 제거 (필수!) */
-    /* max-height: 30vh; <-- 이 코드가 캔버스를 깨뜨리는 원인이었습니다. */
+    /* [수정] 충돌을 일으키던 max-height 제거 (필수!) */
 
     background-color: #ffffff;
     border-radius: 8px;
