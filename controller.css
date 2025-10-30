@@ -60,24 +60,21 @@ body {
     position: relative;
     
     /*
-     * [캔버스 크기 강제 축소]
-     * - width: 100%: 부모(.container)의 90% 너비를 꽉 채움
-     * - aspect-ratio: 9 / 16: 너비에 맞춰 9:16 높이를 자동 계산함
-     * - max-height: 55vh: (수정) 캔버스 최대 높이를 화면 높이의 55%로 제한 (크기 줄이기)
-     * - flex-grow/shrink 제거: 유연한 크기 조정 대신 고정된 비율/크기를 따름
+     * ⭐ [수정] 캔버스 크기 조절 방식 변경 
+     * 'max-height' (높이 제한) 대신 'width' (너비)를 70%로 줄여서
+     * 'aspect-ratio'가 9:16 비율을 유지하며 높이도 자동으로 줄이도록 수정
      */
-    width: 100%; 
+    width: 70%; /* 100% -> 70% (너비를 줄여서 크기 조절) */
     aspect-ratio: 9 / 16;
     
-    /* ⭐ [수정] 캔버스 크기를 줄이기 위해 vh(뷰포트 높이) 기준으로 최대 높이 설정 */
-    max-height: 55vh;
+    /* ⭐ [수정] 충돌을 일으키던 max-height 제거 */
+    /* max-height: 30vh; <-- 이 코드가 캔버스를 깨뜨리는 원인이었습니다. */
 
     background-color: #ffffff;
     border-radius: 8px;
     overflow: visible; 
     
-    /* ⭐ [수정] flex-grow, flex-shrink, min-height 제거 */
-    flex-shrink: 0; /* 기본값으로 복원 */
+    flex-shrink: 0; 
 }
 
 .main-canvas-frame::before { content: ''; display: block; }
