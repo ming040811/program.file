@@ -39,7 +39,7 @@ body {
     flex-direction: column;
     align-items: center;
     
-    /* ⭐ [수정] 100% -> 90% (Scene 1 글자 보이게 하기) */
+    /* [수정] 90% (Scene 1 글자 보이게 하기) */
     width: 90%;
     max-width: 400px;
     
@@ -60,25 +60,24 @@ body {
     position: relative;
     
     /*
-     * [캔버스 크기 수정]
+     * [캔버스 크기 강제 축소]
      * - width: 100%: 부모(.container)의 90% 너비를 꽉 채움
      * - aspect-ratio: 9 / 16: 너비에 맞춰 9:16 높이를 자동 계산함
-     * - flex-grow: 0: (수정) 1 -> 0. 남는 세로 공간을 채우지 않음 (살짝 작아짐)
-     * - flex-shrink: 1: (유지) 화면이 짧아도 캔버스가 비율을 유지하며 줄어듦
-     * - min-height: 0: (유지) flex-shrink가 올바르게 동작하기 위해 필요함
+     * - max-height: 55vh: (수정) 캔버스 최대 높이를 화면 높이의 55%로 제한 (크기 줄이기)
+     * - flex-grow/shrink 제거: 유연한 크기 조정 대신 고정된 비율/크기를 따름
      */
     width: 100%; 
     aspect-ratio: 9 / 16;
     
-    /* ⭐ [수정] 1 -> 0 (캔버스 크기 살짝 줄이기) */
-    flex-grow: 0;
-    
-    flex-shrink: 1;
-    min-height: 0; 
+    /* ⭐ [수정] 캔버스 크기를 줄이기 위해 vh(뷰포트 높이) 기준으로 최대 높이 설정 */
+    max-height: 55vh;
 
     background-color: #ffffff;
     border-radius: 8px;
     overflow: visible; 
+    
+    /* ⭐ [수정] flex-grow, flex-shrink, min-height 제거 */
+    flex-shrink: 0; /* 기본값으로 복원 */
 }
 
 .main-canvas-frame::before { content: ''; display: block; }
@@ -135,7 +134,7 @@ body {
 /* --- 하단 컨트롤 영역 --- */
 
 .bottom-controls {
-    /* ⭐ [수정] .container가 90%가 되었으므로, 버튼도 100%로 채움 */
+    /* [수정] .container가 90%가 되었으므로, 버튼도 100%로 채움 */
     width: 100%;
     display: flex;
     flex-direction: row;
