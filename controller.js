@@ -125,8 +125,8 @@ document.addEventListener('DOMContentLoaded', () => {
             let pad = existingPads.get(deco.id);
 
             // ⭐ [좌표 수정] 90도 회전 적용 (PC -> 모바일)
-            // PC y (상하 0~1) -> 모바일 x (가로 1~0, 반전)
-            const mobileNormX = 1.0 - deco.y_mobile;
+            // PC y (상하 0~1) -> 모바일 x (가로 0~1, 정방향)
+            const mobileNormX = deco.y_mobile;
             // PC x (좌우 0~1) -> 모바일 y (세로 0~1, 정방향)
             const mobileNormY = deco.x_mobile;
             
@@ -287,8 +287,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 // ⭐ [좌표 수정] 90도 회전 적용 (모바일 -> PC)
                 // 모바일 y (세로 0~1) -> PC x (좌우 0~1, 정방향)
                 const pcNormX = mobileNormY;
-                // 모바일 x (가로 0~1) -> PC y (상하 1~0, 반전)
-                const pcNormY = 1.0 - mobileNormX;
+                // 모바일 x (가로 0~1) -> PC y (상하 0~1, 정방향)
+                const pcNormY = mobileNormX;
 
                 // 4. [성능] currentDecoList(로컬 상태)도 직접 업데이트 (깜박임 방지)
                 const deco = currentDecoList.find(d => d.id === decoId);
