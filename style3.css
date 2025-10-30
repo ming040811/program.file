@@ -278,11 +278,11 @@ body {
 .asset-container::-webkit-scrollbar-button { display: none; }
 
 
-/* ⭐ [최종 수정] 아이템 제한 알림 (토스트) */
+/* ⭐ 아이템 제한 알림 (토스트) */
 #limit-toast-notification {
     /* display: none; 은 인라인 스타일로 제어됩니다. */
     position: fixed;
-    bottom: 50px; /* ⭐ 하단에서 50px 위로 (이전 20px에서 상향 조정) */
+    bottom: 50px;
     left: 50%;
     transform: translateX(-50%);
 
@@ -294,6 +294,7 @@ body {
     color: white;
     border-radius: 8px;
 
+    display: flex; /* 토스트가 기본적으로 flexbox 속성을 가지도록 명시 */
     align-items: center;
     justify-content: center;
 
@@ -302,31 +303,36 @@ body {
     text-align: center;
     font-size: 14px;
 
-    /* ⭐ 글자 한 줄로 강제 */
-    white-space: nowrap; /* 텍스트를 한 줄에 강제로 표시 */
-    overflow: hidden; /* 넘치는 텍스트 숨김 */
-    text-overflow: ellipsis; /* 넘치는 텍스트를 ...으로 표시 */
+    /* 글자 한 줄로 강제 */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 
     z-index: 2000;
-    /* 그림자 제거 유지 */
 }
 
-/* 🚀 [추가됨] 큐알코드 닫기 버튼 스타일 */
+/* 🚀 [수정됨] 큐알코드 닫기 버튼 스타일 */
 .qrcode-close-button {
-    height: 30px; 
-    width: 65px; 
-    background-color: #4F99B2; 
-    color: white;
-    border-radius: 4px; /* 조금만 둥글게 */
+    /* 요청사항 반영 */
+    height: 30px; /* 세로 크기 유지 */
+    width: 70px; /* 가로 길이 살짝 늘림 (기존 20px 패딩 고려하여 조정) */
+    background-color: #4F99B2; /* 요청 색상 */
+    color: white; /* 요청 색상 */
+    border-radius: 5px; /* 끝을 조금만 둥글게 */
+    
+    /* 기본 버튼 스타일 */
     border: none;
     cursor: pointer;
     font-size: 14px;
     font-weight: bold;
+    
+    /* 텍스트 중앙 정렬 */
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 0 10px; /* 내부 패딩을 좁게 재설정 */
 }
 
 .qrcode-close-button:hover {
-    background-color: #63adc7; 
+    background-color: #63adc7; /* 호버 효과 */
 }
