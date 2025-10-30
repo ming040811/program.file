@@ -264,9 +264,14 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const canvasImageSrc = item.dataset.canvasSrc || item.src; 
-            let initialWidth = 200, initialHeight = 200;
+            
+            // ⭐ [수정됨] 초기 크기를 100px / 80px로 줄였습니다.
+            let initialWidth = 100;  // 200 -> 100
+            let initialHeight = 100; // 200 -> 100
+
             if (canvasImageSrc.includes('나비.png')) { 
-                initialWidth = 150; initialHeight = 150; 
+                initialWidth = 80;   // 150 -> 80
+                initialHeight = 80;  // 150 -> 80
             }
 
             const newDeco = {
