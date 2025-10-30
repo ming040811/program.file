@@ -105,16 +105,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // =========================================================================
-    // ⭐ 🚨 DOM Reconciliation (비교/조정) 방식으로 수정된 함수 🚨 ⭐
+    // ⭐ 🚨 [⭐️⭐️⭐️ 수정됨 ⭐️⭐️⭐️] DOM Reconciliation 🚨 ⭐
     // =========================================================================
     function updateTouchPads() {
         if (mainCanvasFrame.offsetWidth === 0) return; 
 
         const frameWidth = mainCanvasFrame.offsetWidth;
         const frameHeight = mainCanvasFrame.offsetHeight;
-        const draggingIds = new Set(Array.from(activeTouches.values()).map(data => data.decoId));
-        const existingPads = new Map();
         
+        // [중요] 'activeTouches'를 기준으로 현재 드래그 중인 ID Set 생성
+        const draggingIds = new Set(Array.from(activeTouches.values()).map(data => data.decoId));
+        
+        const existingPads = new Map();
         touchPadsWrapper.querySelectorAll('.touch-pad').forEach(pad => {
             existingPads.set(pad.dataset.id, pad);
         });
@@ -132,7 +134,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // 1a. 기존 패드 업데이트
                 existingPads.delete(deco.id); 
 
-                // --- [⭐️⭐️⭐️ 수정됨 ⭐️⭐️⭐️] ---
+                // --- [⭐️ NEW ⭐️] 롤백 방지 로직 ---
                 // PC가 보낸 위치로 업데이트할지 결정
                 // 1. 현재 드래그 중(draggingIds)이면, 업데이트 안 함 (O)
                 // 2. 방금 뗀 패드(justReleasedPadId)면, 0.4초간 업데이트 안 함 (O)
@@ -198,8 +200,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     frameWidth: frameWidth,
                     frameHeight: frameHeight,
                     isDragging: false, 
-                    finalNormX: -1, 
-                    finalNormY: -1
+                    isThrottled: false // [⭐️ NEW] 30ms 스로틀 플래그
                 });
 
                 if (selectedDecoIds.includes(decoId)) {
@@ -209,7 +210,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }, { passive: false }); 
 
-    // 'touchmove'
+    // [⭐️ 수정] 'touchmove'는 PC로 30ms마다 명령을 다시 전송
     touchPadsWrapper.addEventListener('touchmove', (e) => {
         if (activeTouches.size > 0) {
              e.preventDefault(); 
@@ -225,7 +226,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     continue; 
                 }
 
-                const { pad, lastX, lastY, frameWidth, frameHeight } = dragData;
+                const { pad, decoId, lastX, lastY, frameWidth, frameHeight } = dragData;
                 const dx = touch.clientX - lastX;
                 const dy = touch.clientY - lastY;
                 let currentPadLeft = parseFloat(pad.style.left);
@@ -235,20 +236,41 @@ document.addEventListener('DOMContentLoaded', () => {
                 newPadLeft = Math.max(0, Math.min(newPadLeft, frameWidth));
                 newPadTop = Math.max(0, Math.min(newPadTop, frameHeight));
 
+                // 1. 로컬 UI 즉시 업데이트
                 pad.style.left = `${newPadLeft}px`;
                 pad.style.top = `${newPadTop}px`;
                 dragData.lastX = touch.clientX;
                 dragData.lastY = touch.clientY;
 
+                // 2. [⭐️ NEW] 30ms 스로틀링
+                if (dragData.isThrottled) {
+                    continue; // 30ms가 지나지 않았으면 전송 안 함
+                }
+                dragData.isThrottled = true;
+                setTimeout(() => {
+                    if (activeTouches.has(touch.identifier)) {
+                        activeTouches.get(touch.identifier).isThrottled = false;
+                    }
+                }, 30); // 30ms
+
+                // 3. PC로 보낼 좌표 계산
                 const mobileNormX = newPadLeft / frameWidth;
                 const mobileNormY = newPadTop / frameHeight;
-                dragData.finalNormX = 1.0 - mobileNormX; // logic_Site_TB
-                dragData.finalNormY = mobileNormY;      // logic_Site_LR
+                const logic_Site_TB = 1.0 - mobileNormX;
+                const logic_Site_LR = mobileNormY;
+                
+                // 4. [⭐️ NEW] PC로 'control_one' (move) 명령 전송
+                sendCommandToFirestore('control_one', { 
+                    id: decoId, 
+                    action: 'move',
+                    x_mobile: logic_Site_TB, 
+                    y_mobile: logic_Site_LR  
+                });
             }
         }
     }, { passive: false }); 
 
-    // 'touchend'
+    // [⭐️ 수정] 'touchend'는 '롤백 방지 타이머'를 설정
     const touchEndOrCancel = (e) => {
         for (const touch of e.changedTouches) {
             const dragData = activeTouches.get(touch.identifier);
@@ -258,29 +280,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (dragData.isDragging === true) {
                     // [⭐️ NEW] 드래그가 끝났으므로, '무시 시간' 시작
-                    
-                    // 1. 기존 타이머가 있으면 취소
                     if (justReleasedTimer) {
                         clearTimeout(justReleasedTimer);
                     }
-                    // 2. 이 패드를 '무시' 대상으로 등록
                     justReleasedPadId = dragData.decoId;
                     
-                    // 3. 0.4초 뒤에 '무시' 해제
                     justReleasedTimer = setTimeout(() => {
                         justReleasedPadId = null;
                         justReleasedTimer = null;
                     }, 400); // 400ms (0.4초)
 
-                    // 4. PC로 '최종 위치' 1회 전송
-                    if (dragData.finalNormX !== -1) {
-                        sendCommandToFirestore('control_one', { 
-                            id: dragData.decoId, 
-                            action: 'move',
-                            x_mobile: dragData.finalNormX, 
-                            y_mobile: dragData.finalNormY  
-                        });
-                    }
+                    // [⭐️ 제거] 'touchend'에서 'control_one'을 보내는 로직 제거
+                    // (이미 'touchmove'에서 30ms마다 보냈기 때문)
+
                 } else {
                     // [탭] 드래그되지 않았으므로 'item_click' 전송
                     sendCommandToFirestore('item_click', { id: dragData.decoId });
