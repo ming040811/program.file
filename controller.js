@@ -1,161 +1,256 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // 캔버스 미리보기 관련 요소 제거됨
-    const controlPanel = document.querySelector('.control-panel');
-    const touchPads = document.querySelectorAll('.touch-pad');
+    // 0. DOM 요소
+    const mainCanvasFrame = document.querySelector('.main-canvas-frame');
+    const touchPadsWrapper = document.querySelector('.touch-pads-wrapper');
+    const deleteButton = document.getElementById('delete-selected-deco');
+    const controlGroupWrapper = document.querySelector('.control-group-wrapper');
+    const sceneInfoEl = document.querySelector('.scene-info');
 
-    let currentDecoList = []; // ID와 Index 정보 (최대 3개)
-    let selectedDecoId = null;
+    // 1. Firebase 연동
+    // 'db' 객체는 controller.html의 <script> 태그에서 전역으로 생성되었습니다.
+    if (typeof db === 'undefined') {
+        sceneInfoEl.textContent = 'Firebase 연결 실패';
+        console.error("Firebase 'db' 객체를 찾을 수 없습니다.");
+        return;
+    }
 
-    // --- 1. 메인 창으로 메시지 전송 함수 ---
-    function sendMessage(type, data = {}) {
-        if (window.opener) {
-            window.opener.postMessage({ type, ...data }, '*');
+    const urlParams = new URLSearchParams(window.location.search);
+    const SESSION_ID = urlParams.get('session');
+
+    if (!SESSION_ID) {
+        sceneInfoEl.textContent = '세션 ID 없음';
+        console.error('세션 ID가 URL에 없습니다.');
+        alert('잘못된 접근입니다. PC에서 QR 코드를 다시 스캔하세요.');
+        return;
+    }
+
+    const CONTROLLER_REF = db.collection('controllers').doc(SESSION_ID);
+    console.log("컨트롤러 연결됨. 세션 ID:", SESSION_ID);
+
+    // 2. 상태 변수
+    let currentDecoList = []; 
+    let selectedDecoIds = []; 
+    const activeTouches = new Map();
+
+    // --- 3. Firebase 통신 (모바일 -> PC) ---
+    async function sendCommandToFirestore(type, data = {}) {
+        try {
+            const command = {
+                type: type,
+                ...data,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            // 'command' 필드에 덮어쓰기
+            await CONTROLLER_REF.set({ command: command }, { merge: true });
+        } catch (error) {
+            console.error("Error sending command:", error);
         }
     }
 
-    // --- 2. 터치패드 동적 제어 및 선택 상태 업데이트 ---
-    function updateTouchPads() {
-        touchPads.forEach(pad => {
-            pad.classList.remove('active', 'selected');
+    // --- 4. Firebase 통신 (PC -> 모바일) ---
+    function listenForPCState() {
+        CONTROLLER_REF.onSnapshot((doc) => {
+            if (doc.exists && doc.data().pcState) {
+                const state = doc.data().pcState;
+                
+                // PC에서 보낸 정규화된(0~1) 좌표 리스트
+                currentDecoList = state.decoList || []; 
+                selectedDecoIds = state.selectedIds || [];
+                sceneInfoEl.textContent = `Scene ${state.scene} 연결`;
+                
+                // UI 업데이트
+                updateTouchPads();
+            } else {
+                sceneInfoEl.textContent = 'PC 연결 대기 중...';
+            }
+        }, (error) => {
+            console.error("Error listening for PC state:", error);
+            sceneInfoEl.textContent = '연결 오류';
         });
+    }
+
+    // --- 5. 터치패드 UI 업데이트 (기존 로직과 거의 동일) ---
+    function updateTouchPads() {
+        touchPadsWrapper.innerHTML = ''; 
+
+        const frameWidth = mainCanvasFrame.offsetWidth;
+        const frameHeight = mainCanvasFrame.offsetHeight;
+        if (frameWidth === 0 || frameHeight === 0) return;
 
         currentDecoList.forEach((deco, index) => {
-            const padIndex = index + 1;
-            const pad = document.getElementById(`touch-pad-${padIndex}`);
-            if (pad) {
-                pad.classList.add('active'); 
-                
-                if (deco.id === selectedDecoId) {
-                    pad.classList.add('selected');
-                }
+            const pad = document.createElement('button');
+            pad.classList.add('touch-pad');
+            pad.id = `touch-pad-${deco.id}`;
+            pad.dataset.id = deco.id;
+            pad.title = `아이템 ${index + 1} 선택 및 이동`;
+
+            // 정규화된 좌표(0~1) -> 캔버스 픽셀 좌표로 변환
+            const pixelX = deco.x * frameWidth;
+            const pixelY = deco.y * frameHeight;
+
+            pad.style.left = `${pixelX}px`;
+            pad.style.top = `${pixelY}px`;
+            pad.style.opacity = '1'; // active 클래스 대신 바로 표시
+
+            if (selectedDecoIds.includes(deco.id)) {
+                pad.classList.add('selected');
             }
+
+            // --- 6. 클릭 (선택/해제) 이벤트 리스너 ---
+            pad.addEventListener('click', (e) => {
+                e.stopPropagation();
+                e.preventDefault(); 
+                
+                const decoId = deco.id; 
+                const isSelected = selectedDecoIds.includes(decoId);
+
+                if (isSelected) {
+                    selectedDecoIds = selectedDecoIds.filter(id => id !== decoId);
+                } else {
+                    // 다중 선택 (최대 3개 - PC 제한과 동일하게)
+                    if (selectedDecoIds.length < 3) {
+                        selectedDecoIds.push(decoId);
+                    } else {
+                        // 3개 초과 시, 가장 오래된 것 빼고 새 것 추가
+                        selectedDecoIds.shift(); 
+                        selectedDecoIds.push(decoId);
+                    }
+                }
+                
+                // ⭐ [수정됨] PC로 선택 상태 전송
+                sendCommandToFirestore('DECO_SELECT_MULTI', { ids: selectedDecoIds }); 
+                
+                // (PC로부터 상태가 다시 오겠지만, 즉각적인 반응을 위해 로컬에서도 UI 업데이트)
+                updateTouchPads();
+            });
+
+            touchPadsWrapper.appendChild(pad);
         });
         
-        // 아이템이 선택되어 있을 때만 조작 버튼 활성화
-        const isSelected = selectedDecoId !== null;
+        // 버튼 활성화/비활성화
+        const isSelected = selectedDecoIds.length > 0;
         document.querySelectorAll('.control-btn').forEach(btn => {
             btn.disabled = !isSelected;
         });
-        controlPanel.style.opacity = isSelected ? 1 : 0.4;
-    }
+        deleteButton.disabled = !isSelected;
+        controlGroupWrapper.classList.toggle('active', isSelected);
+    } // --- updateTouchPads 끝 ---
 
-    // --- 3. 터치패드 클릭 (아이템 선택) 및 드래그 (이동) 이벤트 리스너 ---
-    touchPads.forEach(pad => {
-        // 아이템 선택 (클릭/터치)
-        pad.addEventListener('click', (e) => {
-            if (!pad.classList.contains('active')) return;
+
+    // --- 7. 멀티터치 이동 이벤트 핸들러 (기존 로직과 거의 동일) ---
+    
+    touchPadsWrapper.addEventListener('touchstart', (e) => {
+        const frameRect = mainCanvasFrame.getBoundingClientRect();
+        const frameWidth = frameRect.width;
+        const frameHeight = frameRect.height;
+
+        for (const touch of e.changedTouches) {
+            const targetPad = touch.target.closest('.touch-pad');
             
-            const index = parseInt(pad.dataset.index);
-            const deco = currentDecoList.find((_, i) => i + 1 === index);
-
-            if (deco && selectedDecoId !== deco.id) {
-                selectedDecoId = deco.id;
-                sendMessage('DECO_SELECT', { id: selectedDecoId });
-                updateTouchPads();
+            if (targetPad) {
+                const decoId = targetPad.dataset.id;
+                // '선택된' 아이템일 때만 드래그 시작
+                if (selectedDecoIds.includes(decoId)) { 
+                    activeTouches.set(touch.identifier, {
+                        pad: targetPad,
+                        decoId: decoId,
+                        lastX: touch.clientX,
+                        lastY: touch.clientY,
+                        frameWidth: frameWidth,
+                        frameHeight: frameHeight
+                    });
+                }
             }
-        });
-        
-        // ⭐ 터치패드 드래그(이동) 이벤트 ⭐
-        pad.addEventListener('mousedown', initDrag);
-        pad.addEventListener('touchstart', initDrag, { passive: true });
-    });
-    
-    // --- 4. 터치패드 이동 (드래그) 구현 (핵심 로직 변경) ---
-    function initDrag(e) {
-        const targetPad = e.currentTarget;
-        
-        // 1. 활성화 및 선택 상태 확인
-        if (!targetPad.classList.contains('active')) return;
-        if (!targetPad.classList.contains('selected')) {
-            targetPad.click(); // 선택 후 드래그 가능하도록 선택 처리
-            return; 
         }
+    }, { passive: false });
 
-        e.preventDefault();
-        
-        const isTouch = e.type.startsWith('touch');
-        
-        let lastX = isTouch ? e.touches[0].clientX : e.clientX;
-        let lastY = isTouch ? e.touches[0].clientY : e.clientY;
-        
-        const style = window.getComputedStyle(targetPad);
-        // 패드의 현재 offset을 계산 (초기 left/top 값)
-        let padOffsetX = parseFloat(style.getPropertyValue('left'));
-        let padOffsetY = parseFloat(style.getPropertyValue('top'));
+    touchPadsWrapper.addEventListener('touchmove', (e) => {
+        e.preventDefault(); 
 
-        function drag(e_move) {
-            const currentX = isTouch ? e_move.touches[0].clientX : e_move.clientX;
-            const currentY = isTouch ? e_move.touches[0].clientY : e_move.clientY;
-            
-            const dx = currentX - lastX; // 마우스/터치 이동 거리 (X)
-            const dy = currentY - lastY; // 마우스/터치 이동 거리 (Y)
-            
-            // 1. 터치패드 자체 위치 업데이트
-            padOffsetX += dx;
-            padOffsetY += dy;
-            
-            targetPad.style.left = padOffsetX + 'px';
-            targetPad.style.top = padOffsetY + 'px';
-            
-            // 2. 메인 창으로 아이템 이동 요청 전송
-            // (dx, dy 만큼 아이템을 픽셀 단위로 이동하도록 메인 창에 요청)
-            sendMessage('DECO_CONTROL', { 
-                id: selectedDecoId, 
-                action: 'nudge', // 새로운 액션 타입 (이동 거리를 직접 전달)
-                dx: dx,
-                dy: dy
-            });
-            
-            lastX = currentX;
-            lastY = currentY;
+        for (const touch of e.changedTouches) {
+            const dragData = activeTouches.get(touch.identifier);
+
+            if (dragData) {
+                const { pad, decoId, lastX, lastY, frameWidth, frameHeight } = dragData;
+
+                const dx = touch.clientX - lastX;
+                const dy = touch.clientY - lastY;
+                
+                let currentPadLeft = parseFloat(pad.style.left);
+                let currentPadTop = parseFloat(pad.style.top);
+                
+                let newPadLeft = currentPadLeft + dx;
+                let newPadTop = currentPadTop + dy;
+
+                // 캔버스 경계 체크 (기존 코드)
+                const padHalf = pad.offsetWidth / 2;
+                newPadLeft = Math.max(padHalf, Math.min(newPadLeft, frameWidth - padHalf));
+                newPadTop = Math.max(padHalf, Math.min(newPadTop, frameHeight - padHalf));
+
+                pad.style.left = `${newPadLeft}px`;
+                pad.style.top = `${newPadTop}px`;
+                
+                // ⭐ [수정됨] PC로 정규화된 좌표 전송
+                const newNormX = newPadLeft / frameWidth;
+                const newNormY = newPadTop / frameHeight;
+
+                const deco = currentDecoList.find(d => d.id === decoId);
+                if (deco) { deco.x = newNormX; deco.y = newNormY; }
+                
+                sendCommandToFirestore('DECO_CONTROL', { id: decoId, action: 'move', x: newNormX, y: newNormY });
+
+                dragData.lastX = touch.clientX;
+                dragData.lastY = touch.clientY;
+            }
         }
+    }, { passive: false }); 
 
-        function stopDrag() {
-            document.removeEventListener('mousemove', drag);
-            document.removeEventListener('mouseup', stopDrag);
-            document.removeEventListener('touchmove', drag);
-            document.removeEventListener('touchend', stopDrag);
-            
-            // 드래그가 끝난 후, 버튼을 원래의 CSS 위치로 리셋 (필요하다면)
-            // 현재는 버튼이 마지막 드래그 위치에 머무르도록 유지합니다.
+    const touchEndOrCancel = (e) => {
+        for (const touch of e.changedTouches) {
+            activeTouches.delete(touch.identifier);
         }
+    };
 
-        document.addEventListener('mousemove', drag);
-        document.addEventListener('mouseup', stopDrag);
-        document.addEventListener('touchmove', drag, { passive: false });
-        document.addEventListener('touchend', stopDrag);
-    }
-    
-    // --- 5. 회전/크기 조절 버튼 이벤트 리스너 (이전과 동일) ---
+    touchPadsWrapper.addEventListener('touchend', touchEndOrCancel);
+    touchPadsWrapper.addEventListener('touchcancel', touchEndOrCancel);
+
+
+    // --- 8. 버튼 이벤트 리스너 ---
     document.querySelectorAll('.control-btn').forEach(btn => {
         btn.addEventListener('click', () => {
-            if (!selectedDecoId) return; 
-
+            if (selectedDecoIds.length === 0 || btn.disabled) return;
             const action = btn.dataset.action;
             const direction = btn.dataset.direction;
             
-            // 메인 창으로 조작 명령 전송
-            sendMessage('DECO_CONTROL', { id: selectedDecoId, action: action, direction: direction });
+            // ⭐ [수정됨] PC로 명령 전송
+            sendCommandToFirestore('DECO_CONTROL_MULTI', { 
+                ids: selectedDecoIds, 
+                action: action, 
+                direction: direction 
+            });
         });
     });
 
-    // --- 6. 캔버스 프리뷰 렌더링 제거됨 ---
-
-
-    // --- 7. 메인 창으로부터 메시지 수신 처리 (양방향 동기화 핵심) ---
-    window.addEventListener('message', (event) => {
-        if (event.data.type === 'DECO_LIST_UPDATE') {
-            currentDecoList = event.data.data;
-            selectedDecoId = event.data.selectedId;
-            
-            // 이전 단계에서 사용했던 fullDecoData 및 renderPreview 호출은 제거됨
-            
-            updateTouchPads(); 
-        }
+    // --- 9. 삭제 버튼 ---
+    deleteButton.addEventListener('click', () => {
+        if (selectedDecoIds.length === 0 || deleteButton.disabled) return;
+        
+        // ⭐ [수정됨] PC로 삭제 명령 전송
+        sendCommandToFirestore('DECO_DELETE_MULTI', { ids: selectedDecoIds });
+        
+        selectedDecoIds = []; 
+        updateTouchPads(); // 즉각적인 UI 반응
     });
 
-    // --- 8. 초기 요청 ---
-    window.onload = () => {
-        sendMessage('REQUEST_DECO_LIST');
-    };
+    // --- 10. 초기 실행 ---
+    // ⭐ [신규] PC 상태 수신 시작
+    listenForPCState();
+
+    // ⭐ [제거됨] 더미 데이터 로드 제거
+    // request_dummy_list();
+
+    // 리사이즈 시 터치패드 위치 재계산
+    window.addEventListener('resize', () => {
+        updateTouchPads();
+    });
 });
