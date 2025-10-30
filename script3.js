@@ -35,7 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     let currentScene = '1';
     
-    // ⭐ [수정] 단일 선택 변수를 배열로 변경
+    // ⭐ [수정됨] 단일 선택 변수를 배열로 변경
     let selectedDecoIds = []; 
     let toastTimer = null;
 
@@ -68,16 +68,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
             return {
                 id: deco.id,
-                // ⭐ [좌표 매핑 수정] PC Y -> 모바일 X (컨트롤러 가로)
+                // PC Y (세로) -> 모바일 X (컨트롤러 가로)
                 x_mobile: (deco.y + decoRect.height / 2) / canvasHeight, 
-                // ⭐ [좌표 매핑 수정] PC X -> 모바일 Y (컨트롤러 세로)
+                // PC X (가로) -> 모바일 Y (컨트롤러 세로)
                 y_mobile: (deco.x + decoRect.width / 2) / canvasWidth   
             };
         });
         
         const state = {
             scene: currentScene,
-            // ⭐ [수정] 선택된 ID 배열(selectedDecoIds)을 그대로 전송
+            // ⭐ [수정됨] 선택된 ID 배열(selectedDecoIds)을 그대로 전송
             selectedIds: selectedDecoIds, 
             decoList: decoListForMobile,
             timestamp: firebase.firestore.FieldValue.serverTimestamp()
@@ -107,12 +107,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     const data = command.data || {};
 
                     if (action === 'select_multi') {
-                        // ⭐ [수정] 컨트롤러의 선택 배열(data.ids)을 PC에 그대로 반영
+                        // ⭐ [수정됨] 컨트롤러의 선택 배열(data.ids)을 PC에 그대로 반영
                         selectItems(data.ids || []);
 
                     } else if (action === 'control_one') {
                         // 개별 아이템 이동 (터치패드 드래그)
-                        // ⭐ [좌표 매핑 수정] x_mobile, y_mobile 순서 변경
                         handleItemMove(data.id, data.y_mobile, data.x_mobile); // (id, pcX_logic, pcY_logic)
 
                     } else if (action === 'control_multi') {
@@ -168,7 +167,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- [수정] 아이템 선택 처리 함수 (복수 선택) ---
+    // --- [수정됨] 아이템 선택 처리 함수 (복수 선택) ---
     function selectItems(ids = []) {
         // 1. (데이터) 새 ID 목록으로 교체
         selectedDecoIds = ids;
@@ -187,7 +186,7 @@ document.addEventListener('DOMContentLoaded', () => {
         syncStateToFirestore(); 
     }
 
-    // --- [수정] 모바일 좌표계로 아이템 이동 처리 ---
+    // --- [수정됨] 모바일 좌표계로 아이템 이동 처리 ---
     function handleItemMove(id, mobileControllerX, mobileControllerY) {
         if (!canvas || !id) return;
         const decoData = storyData[currentScene].decorations.find(d => d.id === id);
@@ -198,7 +197,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const canvasHeight = canvas.offsetHeight;
         const decoRect = element.getBoundingClientRect();
 
-        // ⭐ [핵심] 좌표 90도 회전 적용 (컨트롤러 -> PC)
         // PC X (가로) = 컨트롤러 Y (세로)
         decoData.x = (mobileControllerX * canvasWidth) - (decoRect.width / 2);
         // PC Y (세로) = 컨트롤러 X (가로)
@@ -210,7 +208,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateThumbnail(currentScene);
     }
 
-    // --- [수정] 컨트롤러 버튼 조작 처리 함수 ---
+    // --- [수정됨] 컨트롤러 버튼 조작 처리 함수 ---
     function handleControllerControl(id, action, data) {
         let decoData = storyData[currentScene].decorations.find(d => d.id === id);
         if (!decoData) return;
@@ -248,11 +246,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 const element = document.getElementById(id);
                 if (element) element.remove();
                 
-                // ⭐ [수정] 삭제된 아이템이 선택 목록에 있는지 확인
+                // ⭐ [수정됨] 삭제된 아이템이 선택 목록에 있는지 확인
                 if (selectedDecoIds.includes(id)) {
                     // 목록에서 제거하고 갱신
                     selectedDecoIds = selectedDecoIds.filter(i => i !== id);
-                    selectItems(selectedDecoIds);
+                    selectItems(selectedDecoIds); // selectItems가 syncStateToFirestore 호출
                 } else {
                     // 선택 목록에 변경이 없으므로, 그냥 상태 동기화
                     syncStateToFirestore(); 
@@ -310,7 +308,7 @@ document.addEventListener('DOMContentLoaded', () => {
             storyData[currentScene].decorations.push(newDeco);
             renderScene(currentScene); 
             
-            // ⭐ [수정] 새 아이템을 유일한 선택 항목으로 지정
+            // ⭐ [수정됨] 새 아이템을 유일한 선택 항목으로 지정
             selectItems([newDeco.id]);
         });
     });
@@ -328,16 +326,14 @@ document.addEventListener('DOMContentLoaded', () => {
         
         data.decorations.forEach(createDecorationElement);
         
-        // ⭐ [수정] 씬 렌더링 시, 현재 씬에 없는 아이템은 선택 목록에서 제거
+        // ⭐ [수정됨] 씬 렌더링 시, 현재 씬에 없는 아이템은 선택 목록에서 제거
         const newDecoIds = new Set(data.decorations.map(d => d.id));
         selectedDecoIds = selectedDecoIds.filter(id => newDecoIds.has(id));
         
-        // ⭐ [수정] selectItem 대신 selectItems 호출
+        // ⭐ [수정됨] selectItem 대신 selectItems 호출
         selectItems(selectedDecoIds); 
         
         setTimeout(() => updateThumbnail(sceneNumber), 50); 
-        // selectItems 함수 내부에서 syncStateToFirestore가 호출되므로 중복 호출 제거
-        // syncStateToFirestore(); 
     }
 
     // --- 장식 요소 생성 함수 ---
@@ -375,12 +371,12 @@ document.addEventListener('DOMContentLoaded', () => {
         makeInteractive(item);
     }
 
-    // --- [수정] 인터랙티브 기능 부여 함수 (PC 직접 조작) ---
+    // --- [수정됨] 인터랙티브 기능 부여 함수 (PC 직접 조작) ---
     function makeInteractive(element) {
         const decoData = storyData[currentScene].decorations.find(d => d.id === element.id);
         if (!decoData) return;
 
-        // ⭐ [수정] 선택 로직 (컨트롤러와 동일한 "최대 2개" 로직)
+        // ⭐ [수정됨] 선택 로직 (컨트롤러와 동일한 "최대 2개" 로직)
         element.addEventListener('mousedown', (e) => {
             if (e.target.closest('.handle') || e.target.closest('.controls')) return;
             
@@ -411,7 +407,7 @@ document.addEventListener('DOMContentLoaded', () => {
         element.onmousedown = function(e) {
             if (e.target.closest('.handle') || e.target.closest('.controls')) return;
             
-            // ⭐ [추가] 드래그 시작 시점에도 선택 로직이 실행되도록 함
+            // ⭐ [추가됨] 드래그 시작 시점에도 선택 로직이 실행되도록 함
             const id = element.id;
             if (!selectedDecoIds.includes(id)) {
                 // 클릭 시점의 선택 로직과 동일하게 처리
@@ -620,10 +616,10 @@ document.addEventListener('DOMContentLoaded', () => {
         return { x: newX, y: newY };
     }
 
-    // --- [수정] 캔버스 외부 클릭 시 선택 해제 ---
+    // --- [수정됨] 캔버스 외부 클릭 시 선택 해제 ---
     document.addEventListener('mousedown', (e) => {
         if (!e.target.closest('.decoration-item') && !e.target.closest('.asset-item') && !e.target.closest('#qr-modal')) {
-            // ⭐ [수정] 빈 배열로 선택 해제
+            // ⭐ [수정됨] 빈 배열로 선택 해제
             selectItems([]);
         }
     });
