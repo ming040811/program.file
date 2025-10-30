@@ -21,14 +21,14 @@ body {
     flex-direction: column;
     align-items: center;
     
-    /* [레이아웃] UI를 위로 당김 */
+    /* ⭐ [수정] center -> flex-start (UI를 위로 당겨 버튼 공간 확보) */
     justify-content: flex-start;
     
     height: 100vh;
     box-sizing: border-box;
     overflow: hidden;
 
-    /* [레이아웃] vh 단위로 변경 (버튼 잘림 방지) */
+    /* ⭐ [수정] vh 단위로 변경 (버튼 잘림 방지) */
     padding-top: 2vh;
     padding-bottom: 2vh;
     position: relative;
@@ -42,12 +42,12 @@ body {
     max-width: 400px;
     
     height: 100%;
-    /* [레이아웃] body padding을 뺀 높이 */
+    /* ⭐ [수정] body padding을 뺀 높이 */
     max-height: calc(100vh - 4vh); 
     
-    /* [레이아웃] UI를 위로 당김 */
+    /* ⭐ [수정] center -> flex-start (UI를 위로 당김) */
     justify-content: flex-start; 
-    /* [레이아웃] 캔버스와 버튼 사이 간격 */
+    /* ⭐ [수정] 캔버스와 버튼 사이 간격 */
     gap: 15px; 
 
     position: relative;
@@ -57,8 +57,8 @@ body {
 .main-canvas-frame {
     position: relative;
     
-    /* * ⭐ [캔버스 복구 및 수정] 
-     * height: 70% (고정 퍼센트) 대신 flex-grow: 1 (유연하게 채우기)로 변경
+    /* * ⭐ [캔버스 사라짐/버튼 잘림 문제 해결] 
+     * height: 70% (고정값) 대신 flex-grow: 1 (남은 공간 채우기)로 변경
      *
      * - width: 100%: 컨테이너 너비(max 400px)를 꽉 채움
      * - aspect-ratio: 9 / 16: 너비에 맞춰 9:16 높이를 자동 계산함
@@ -116,7 +116,7 @@ body {
     font-size: 1px;
     cursor: grab;
     
-    /* [성능 수정] top, left 애니메이션 제거 (랙/느림 문제 해결) */
+    /* ⭐ [성능 수정] top, left 애니메이션 제거 (랙/느림 문제 해결) */
     transition: background-color 0.2s, opacity 0.3s, box-shadow 0.2s;
     
     opacity: 0;
@@ -139,7 +139,7 @@ body {
     gap: 2px;
     margin-top: 0;
     
-    /* [레이아웃] 하단 버튼은 크기 고정 (줄어들지 않음) */
+    /* ⭐ [레이아웃] 하단 버튼은 크기 고정 (줄어들지 않음) */
     flex-shrink: 0;
 }
 
