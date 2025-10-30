@@ -90,7 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             pad.style.left = `${pixelX}px`;
             pad.style.top = `${pixelY}px`;
-            pad.style.opacity = '1'; // active 클래스 대신 바로 표시
+            // pad.style.opacity = '1'; // CSS에서 .touch-pad { opacity: 1; } 로 변경함
 
             if (selectedDecoIds.includes(deco.id)) {
                 pad.classList.add('selected');
@@ -117,7 +117,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
                 
-                // ⭐ [수정됨] PC로 선택 상태 전송
+                // ⭐ PC로 선택 상태 전송
                 sendCommandToFirestore('DECO_SELECT_MULTI', { ids: selectedDecoIds }); 
                 
                 // (PC로부터 상태가 다시 오겠지만, 즉각적인 반응을 위해 로컬에서도 UI 업데이트)
@@ -133,7 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.disabled = !isSelected;
         });
         deleteButton.disabled = !isSelected;
-        controlGroupWrapper.classList.toggle('active', isSelected);
+        // controlGroupWrapper.classList.toggle('active', isSelected); // CSS에서 .active 제거됨
     } // --- updateTouchPads 끝 ---
 
 
@@ -222,7 +222,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const action = btn.dataset.action;
             const direction = btn.dataset.direction;
             
-            // ⭐ [수정됨] PC로 명령 전송
+            // ⭐ PC로 명령 전송
             sendCommandToFirestore('DECO_CONTROL_MULTI', { 
                 ids: selectedDecoIds, 
                 action: action, 
@@ -235,7 +235,7 @@ document.addEventListener('DOMContentLoaded', () => {
     deleteButton.addEventListener('click', () => {
         if (selectedDecoIds.length === 0 || deleteButton.disabled) return;
         
-        // ⭐ [수정됨] PC로 삭제 명령 전송
+        // ⭐ PC로 삭제 명령 전송
         sendCommandToFirestore('DECO_DELETE_MULTI', { ids: selectedDecoIds });
         
         selectedDecoIds = []; 
@@ -243,11 +243,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- 10. 초기 실행 ---
-    // ⭐ [신규] PC 상태 수신 시작
+    // ⭐ PC 상태 수신 시작
     listenForPCState();
-
-    // ⭐ [제거됨] 더미 데이터 로드 제거
-    // request_dummy_list();
 
     // 리사이즈 시 터치패드 위치 재계산
     window.addEventListener('resize', () => {
