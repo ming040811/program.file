@@ -72,18 +72,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 sceneInfoEl.textContent = `Scene ${state.scene} 연결됨`;
                 
-                // 1. 새 아이템 목록을 받습니다.
                 currentDecoList = state.decoList || []; 
-                
-                // ⭐ [버그 수정] 
-                // 2. 새 목록에 있는 아이템의 ID만 Set으로 만듭니다.
                 const newDecoIds = new Set(currentDecoList.map(deco => deco.id));
                 
-                // 3. 로컬 selectedDecoIds를 "정리"합니다.
-                //    (새 목록에 없는 "유령" ID는 제거)
+                // [버그 수정] 새 목록에 없는 "유령" ID는 제거
                 selectedDecoIds = selectedDecoIds.filter(id => newDecoIds.has(id));
 
-                // 4. 정리된 상태로 UI를 업데이트합니다.
                 updateTouchPads();
 
             } else {
@@ -147,7 +141,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     pad.style.top = `${pixelY}px`;
                 }
                 
-                // [선택 상태] "정리된" 로컬 selectedDecoIds 기준으로 UI 업데이트
                 pad.classList.toggle('selected', selectedDecoIds.includes(deco.id));
 
             } else {
@@ -173,14 +166,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     const decoId = deco.id; 
                     const isSelected = selectedDecoIds.includes(decoId);
 
-                    // [선택 로직] 최대 2개 선택
+                    // ⭐ [선택 로직 수정] 
                     if (isSelected) {
+                        // 1. 이미 선택된 아이템을 탭 -> 선택 해제
                         selectedDecoIds = selectedDecoIds.filter(id => id !== decoId);
                     } else {
+                        // 2. 선택되지 않은 아이템을 탭
                         if (selectedDecoIds.length < 2) {
+                            // 2a. (0 or 1개) -> 선택 추가
                             selectedDecoIds.push(decoId);
                         } else {
-                            console.warn("최대 2개까지만 선택할 수 있습니다.");
+                            // 2b. (2개) -> 가장 "오래된" 것(0번) 제거, 새 것 추가
+                            selectedDecoIds.shift(); // 큐(Queue)의 맨 앞(가장 먼저 선택한 것) 제거
+                            selectedDecoIds.push(decoId); // 새 아이템을 큐의 맨 뒤에 추가
                         }
                     }
                     
