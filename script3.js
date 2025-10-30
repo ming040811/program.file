@@ -14,7 +14,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const CONTROLLER_REF = db.collection('controllers').doc(SESSION_ID);
 
-    // 기본 DOM 요소
+    // ... (DOM 요소 및 storyData 정의는 이전과 동일) ...
+    // (DOM 요소)
     const canvas = document.getElementById('canvas');
     const openControllerBtn = document.getElementById('open-controller-btn');
     const verticalGuide = document.querySelector('.vertical-guide');
@@ -22,7 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const qrModal = document.getElementById('qr-modal');
     const qrcodeDiv = document.getElementById('qrcode-container');
 
-    // 스토리 데이터
+    // (스토리 데이터)
     const storyData = {
         '1': { background: '', decorations: [] }, 
         '2': { background: '', decorations: [] },
@@ -38,7 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let selectedDecoIds = []; 
     let toastTimer = null;
 
-    // --- 알림창 표시 함수 ---
+    // ... (showLimitToast 함수는 이전과 동일) ...
     function showLimitToast() {
         const toast = document.getElementById('limit-toast-notification');
         if (!toast) return;
@@ -62,15 +63,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const canvasHeight = canvas.offsetHeight;
 
         const decoListForMobile = storyData[currentScene].decorations.map(deco => {
-            // ⭐ [수정] getBoundingClientRect 대신 deco 데이터의 원본 크기 사용
             const decoWidth = deco.width;
             const decoHeight = deco.height;
 
             return {
                 id: deco.id,
-                // PC (Y축: 0~canvasHeight) -> 모바일 (x_mobile: 0~1)
                 x_mobile: (deco.y + decoHeight / 2) / canvasHeight, 
-                // PC (X축: 0~canvasWidth) -> 모바일 (y_mobile: 0~1)
                 y_mobile: (deco.x + decoWidth / 2) / canvasWidth   
             };
         });
@@ -106,13 +104,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     const action = command.action;
                     const data = command.data || {};
 
-                    if (action === 'select_multi') {
-                        // ⭐ [수정] 'controller' 소스를 넘겨서 "메아리(echo)" 방지
-                        selectItems(data.ids || [], 'controller'); 
+                    // ⭐ [수정] 'select_multi' 대신 'item_click'을 처리합니다.
+                    if (action === 'item_click') {
+                        handleItemClick(data.id); // PC가 선택 로직을 처리
 
                     } else if (action === 'control_one') {
-                        // (id, pcX_logic, pcY_logic)
-                        // 컨트롤러에서 (x_mobile, y_mobile)로 보낸 것을 PC 로직에 맞게 (Y, X) 순서로 받음
                         handleItemMove(data.id, data.y_mobile, data.x_mobile); 
 
                     } else if (action === 'control_multi') {
@@ -124,6 +120,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         data.ids.forEach(id => {
                             handleControllerControl(id, 'delete');
                         });
+                        // ⭐ [수정] 삭제 처리 후에도 PC가 동기화를 수행합니다.
+                        // (handleControllerControl 내부에서 호출됨)
                     }
 
                     // 명령 처리 후, Firestore에서 command 필드 삭제
@@ -145,6 +143,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     listenForControlCommands(); 
     
+    // ... (openControllerBtn 이벤트 리스너는 이전과 동일) ...
     if (openControllerBtn) {
         openControllerBtn.addEventListener('click', () => {
             if (qrModal) qrModal.style.display = 'flex';
@@ -158,8 +157,36 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- [⭐️⭐️⭐️ 수정됨 ⭐️⭐️⭐️] 컨트롤러 클릭 처리 함수 ---
+    // (새 함수 추가)
+    function handleItemClick(id) {
+        if (!id) return;
+        const isSelected = selectedDecoIds.includes(id);
+
+        if (isSelected) {
+            // 1. 이미 선택된 것을 클릭 -> 해제
+            selectedDecoIds = selectedDecoIds.filter(i => i !== id);
+        } else {
+            // 2. 새 아이템 클릭
+            if (selectedDecoIds.length < 2) {
+                // 2a. 2개 미만 -> 추가
+                selectedDecoIds.push(id);
+            } else {
+                // 2b. 2개 꽉 참 -> 가장 오래된 것 제거하고 새 아이템 추가
+                selectedDecoIds.shift();
+                selectedDecoIds.push(id);
+            }
+        }
+        
+        // ⭐ [중요] PC가 로직을 처리한 후, 'selectItems'를 호출하여
+        // PC의 UI를 업데이트하고 컨트롤러로 'sync'합니다.
+        // 'source'가 'pc'이든 'controller'이든 상관없이 항상 sync합니다.
+        selectItems(selectedDecoIds, 'pc'); 
+    }
+
+
     // --- [⭐️⭐️⭐️ 수정됨 ⭐️⭐️⭐️] 아이템 선택 처리 함수 ---
-    // source: 'pc' (기본값) | 'controller'
+    // (이 함수는 이제 PC UI 업데이트와 동기화만 담당합니다)
     function selectItems(ids = [], source = 'pc') {
         selectedDecoIds = ids;
 
@@ -172,14 +199,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         
         // ⭐ [수정]
-        // '메아리(echo)' 방지 로직을 여기서 제거합니다.
-        // 선택 상태는 PC가 항상 신뢰할 수 있는 단일 출처(SSOT)가 되어야 하므로,
-        // 컨트롤러에서 명령이 오든(source === 'controller') PC에서 직접 클릭하든(source === 'pc'),
-        // 변경된 최종 상태를 "항상" 컨트롤러로 다시 동기화(전파)해야 합니다.
-        
-        // if (source === 'pc') { // <-- 이 조건문 제거
+        // PC가 상태의 유일한 'Source of Truth'이므로,
+        // 'source'와 관계없이 *항상* 변경된 최종 상태를 컨트롤러로 동기화(전파)합니다.
         syncStateToFirestore(); 
-        // } // <-- 이 조건문 제거
     }
 
     // --- [⭐️⭐️⭐️ 수정됨 ⭐️⭐️⭐️] 모바일 좌표계로 아이템 이동 처리 ---
@@ -192,24 +214,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const canvasWidth = canvas.offsetWidth;
         const canvasHeight = canvas.offsetHeight;
         
-        // ⭐ [수정]
-        // getBoundingClientRect()는 회전값을 포함한 크기를 반환하여 좌표 계산 오류 발생
-        // const decoRect = element.getBoundingClientRect(); // <-- 이 줄 제거
-        
-        // ⭐ [수정] decoData의 원본 너비/높이로 중심점을 계산합니다.
-        // mobileControllerX는 컨트롤러의 Y축(PC의 X축)을 의미 (0.0 ~ 1.0)
-        // mobileControllerY는 컨트롤러의 X축(PC의 Y축)을 의미 (0.0 ~ 1.0)
         decoData.x = (mobileControllerX * canvasWidth) - (decoData.width / 2);
         decoData.y = (mobileControllerY * canvasHeight) - (decoData.height / 2);
 
         updateElementStyle(decoData);
-        
-        // ⭐ [속도 개선]
-        // syncStateToFirestore(); // <-- 제거 (메아리 방지)
         updateThumbnail(currentScene); // 썸네일은 갱신
+        
+        // ⭐ [수정]
+        // PC가 이동을 처리했으므로, 이 '최신 상태'를 컨트롤러에 다시 알려줍니다.
+        // (컨트롤러는 이 신호를 받아야 자신의 위치가 올바른지 확인합니다)
+        syncStateToFirestore();
     }
 
-    // --- [수정됨] 컨트롤러 버튼 조작 처리 함수 ---
+    // --- [⭐️⭐️⭐️ 수정됨 ⭐️⭐️⭐️] 컨트롤러 버튼 조작 처리 함수 ---
     function handleControllerControl(id, action, data) {
         let decoData = storyData[currentScene].decorations.find(d => d.id === id);
         if (!decoData) return;
@@ -217,15 +234,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const step = { rotate: 5, scale: 0.02 }; 
         
         if (action === 'rotate') {
+            // ... (회전 로직 동일) ...
             const direction = data.direction;
             if (direction === 'LEFT') { decoData.rotation -= step.rotate; }
             else if (direction === 'RIGHT') { decoData.rotation += step.rotate; }
             
         } else if (action === 'scale') {
+            // ... (크기 조절 로직 동일) ...
             const direction = data.direction;
             const factor = 1 + (direction === 'UP' ? step.scale : -step.scale);
-            
-            // ⭐ [수정] getBoundingClientRect 대신 원본 크기 사용
             const currentWidth = decoData.width;
             const currentHeight = decoData.height;
 
@@ -247,29 +264,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 const element = document.getElementById(id);
                 if (element) element.remove();
                 
-                // ⭐ [수정] 삭제된 아이템이 선택 목록에 있는지 확인
                 if (selectedDecoIds.includes(id)) {
                     selectedDecoIds = selectedDecoIds.filter(i => i !== id);
-                    // 삭제로 인해 PC 상태가 바뀌었으므로 'pc' 소스로 동기화 강제
+                    // ⭐ [수정] 삭제로 PC 상태가 바뀌었으므로 'selectItems' 호출 (자동 sync됨)
                     selectItems(selectedDecoIds, 'pc'); 
                 } else {
-                    // 선택은 안됐지만 아이템 목록이 바뀌었으므로 동기화 강제
+                    // ⭐ [수정] 아이템 목록이 바뀌었으므로 동기화 강제
                     syncStateToFirestore();
                 }
-                updateThumbnail(currentScene); // 삭제는 썸네일 즉시 반영
+                updateThumbnail(currentScene);
                 return; 
             }
         }
 
         // 공통 업데이트 (삭제 제외)
         updateElementStyle(decoData);
-        // ⭐ [속도 개선]
-        // syncStateToFirestore(); // <-- 제거 (메아리 방지)
-        updateThumbnail(currentScene); // 썸네일은 갱신
+        updateThumbnail(currentScene);
+        
+        // ⭐ [수정]
+        // 회전/크기/반전 처리 후, 이 '최신 상태'를 컨트롤러에 다시 알려줍니다.
+        syncStateToFirestore();
     }
+
+    // --- (이하 나머지 코드는 이전과 동일합니다) ---
 
     // --- 아이템 스타일만 가볍게 업데이트하는 함수 ---
     function updateElementStyle(decoData) {
+        // ... (내용 동일) ...
         const element = document.getElementById(decoData.id);
         if (!element) return;
         element.style.left = decoData.x + 'px';
@@ -286,6 +307,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- 장식 아이템 추가 이벤트 핸들러 ---
     document.querySelectorAll('.asset-item[data-type="decoration"]').forEach(item => {
         item.addEventListener('click', () => {
+            // ... (내용 동일) ...
             if (storyData[currentScene].decorations.length >= 3) {
                 showLimitToast(); 
                 return;
@@ -308,15 +330,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 scaleX: 1,
             };
             storyData[currentScene].decorations.push(newDeco);
-            renderScene(currentScene); // 렌더씬 내부에서 selectItems -> syncState 호출
-            
-            // ⭐ [수정] 'pc' 소스로 selectItems 호출
-            selectItems([newDeco.id], 'pc');
+            renderScene(currentScene);
+            selectItems([newDeco.id], 'pc'); // 'pc' 소스
         });
     });
 
     // --- 씬 렌더링 함수 ---
     function renderScene(sceneNumber) {
+        // ... (내용 동일) ...
         if (!canvas) return;
         const data = storyData[sceneNumber];
         
@@ -331,14 +352,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const newDecoIds = new Set(data.decorations.map(d => d.id));
         selectedDecoIds = selectedDecoIds.filter(id => newDecoIds.has(id));
         
-        // ⭐ [수정] 'pc' 소스로 selectItems 호출 (씬 변경은 PC 주도)
-        selectItems(selectedDecoIds, 'pc'); 
+        selectItems(selectedDecoIds, 'pc'); // 'pc' 소스
         
-        setTimeout(() => updateThumbnail(sceneNumber), 50); // 썸네일은 즉시
+        setTimeout(() => updateThumbnail(sceneNumber), 50);
     }
 
     // --- 장식 요소 생성 함수 ---
     function createDecorationElement(decoData) {
+        // ... (내용 동일) ...
          if (!canvas) return;
         const item = document.createElement('div');
         item.className = 'decoration-item';
@@ -381,21 +402,9 @@ document.addEventListener('DOMContentLoaded', () => {
         element.addEventListener('mousedown', (e) => {
             if (e.target.closest('.handle') || e.target.closest('.controls')) return;
             
-            const id = element.id;
-            const isSelected = selectedDecoIds.includes(id);
-
-            if (isSelected) {
-                selectedDecoIds = selectedDecoIds.filter(i => i !== id);
-            } else {
-                if (selectedDecoIds.length < 2) {
-                    selectedDecoIds.push(id);
-                } else {
-                    selectedDecoIds.shift();
-                    selectedDecoIds.push(id);
-                }
-            }
-            // ⭐ [수정] 'pc' 소스로 selectItems 호출
-            selectItems(selectedDecoIds, 'pc'); 
+            // ⭐ [수정] PC에서 클릭 시, 새로 추가된 'handleItemClick' 함수를 재사용합니다.
+            handleItemClick(element.id);
+            
             e.stopPropagation();
         });
 
@@ -404,16 +413,10 @@ document.addEventListener('DOMContentLoaded', () => {
         element.onmousedown = function(e) {
             if (e.target.closest('.handle') || e.target.closest('.controls')) return;
             
-            const id = element.id;
-            if (!selectedDecoIds.includes(id)) {
-                if (selectedDecoIds.length < 2) {
-                    selectedDecoIds.push(id);
-                } else {
-                    selectedDecoIds.shift();
-                    selectedDecoIds.push(id);
-                }
-                // ⭐ [수정] 'pc' 소스로 selectItems 호출
-                selectItems(selectedDecoIds, 'pc');
+            // ⭐ [수정] 드래그 시작 시, 클릭 로직(handleItemClick)을 동일하게 사용합니다.
+            // (선택되어 있지 않으면 선택하고, 2개면 교체합니다)
+            if (!selectedDecoIds.includes(element.id)) {
+                 handleItemClick(element.id);
             }
             
             e.preventDefault();
@@ -424,6 +427,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         function elementDrag(e) {
+            // ... (스냅 로직 포함, 내용 동일) ...
             if (verticalGuide) verticalGuide.style.display = 'none';
             if (horizontalGuide) horizontalGuide.style.display = 'none';
             pos1 = pos3 - e.clientX;
@@ -433,7 +437,6 @@ document.addEventListener('DOMContentLoaded', () => {
             let newTop = element.offsetTop - pos2;
             let newLeft = element.offsetLeft - pos1;
             
-            // ... (스냅 로직)
             const snapThreshold = 5; 
             if (!canvas) return;
             const canvasWidth = canvas.offsetWidth;
@@ -470,6 +473,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         function closeDragElement() {
+            // ... (내용 동일) ...
             document.onmouseup = null;
             document.onmousemove = null;
             if (verticalGuide) verticalGuide.style.display = 'none';
@@ -478,7 +482,7 @@ document.addEventListener('DOMContentLoaded', () => {
             decoData.x = element.offsetLeft;
             decoData.y = element.offsetTop;
             
-            updateThumbnail(currentScene); // PC 드래그는 썸네일 즉시 반영
+            updateThumbnail(currentScene); 
             syncStateToFirestore(); // PC 드래그는 즉시 동기화
         }
         
@@ -488,8 +492,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         
         function initResize(e) {
+            // ... (리사이즈 로직, 내용 동일) ...
             e.preventDefault(); e.stopPropagation();
-            // ... (리사이즈 로직) ...
             const handleType = e.target.classList[1];
             const rect = element.getBoundingClientRect();
             const angleRad = decoData.rotation * (Math.PI / 180);
@@ -546,7 +550,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const rotator = element.querySelector('.rotator');
         if (rotator) {
             rotator.onmousedown = function(e) {
-                // ... (회전 로직) ...
+                // ... (회전 로직, 내용 동일) ...
                 e.preventDefault(); e.stopPropagation();
                 const rect = element.getBoundingClientRect();
                 const centerX = rect.left + rect.width / 2;
@@ -576,6 +580,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const flipButton = element.querySelector('.flip');
         if (flipButton) {
             flipButton.addEventListener('click', (e) => {
+                // ... (내용 동일) ...
                 e.stopPropagation();
                 decoData.scaleX *= -1;
                 updateElementStyle(decoData);
@@ -586,6 +591,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const deleteButton = element.querySelector('.delete');
         if (deleteButton) {
             deleteButton.addEventListener('click', (e) => {
+                // ... (내용 동일) ...
                 e.stopPropagation();
                 handleControllerControl(element.id, 'delete');
             });
@@ -594,7 +600,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // --- 8. 헬퍼 함수 (회전된 좌표 계산) ---
     function getRotatedCorners(rect, angle) {
-        // ... (내용 동일)
+        // ... (내용 동일) ...
         const center = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
         const corners = {
             tl: { x: rect.left, y: rect.top }, tr: { x: rect.right, y: rect.top },
@@ -606,7 +612,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return corners;
     }
     function rotatePoint(point, center, angle) {
-        // ... (내용 동일)
+        // ... (내용 동일) ...
         const dx = point.x - center.x;
         const dy = point.y - center.y;
         const newX = center.x + dx * Math.cos(angle) - dy * Math.sin(angle);
@@ -617,7 +623,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- [수정됨] 캔버스 외부 클릭 시 선택 해제 ---
     document.addEventListener('mousedown', (e) => {
         if (!e.target.closest('.decoration-item') && !e.target.closest('.asset-item') && !e.target.closest('#qr-modal')) {
-            // ⭐ [수정] 'pc' 소스로 selectItems 호출
+            // ⭐ [수정] 빈 배열로 'selectItems'를 호출 (자동 sync됨)
             selectItems([], 'pc');
         }
     });
@@ -626,6 +632,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const scenes = document.querySelectorAll('.scene');
     scenes.forEach(scene => {
         scene.addEventListener('click', () => {
+            // ... (내용 동일) ...
             scenes.forEach(s => s.classList.remove('active'));
             scene.classList.add('active');
             currentScene = scene.dataset.scene;
@@ -635,7 +642,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // --- 11. 타임라인 썸네일 업데이트 ---
     function updateThumbnail(sceneNumber) {
-        // ... (내용 동일)
+        // ... (내용 동일) ...
         const sceneEl = document.querySelector(`.scene[data-scene="${sceneNumber}"]`);
         if (sceneEl) {
             sceneEl.innerHTML = ''; 
