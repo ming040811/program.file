@@ -29,7 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let selectedDecoIds = []; 
     const activeTouches = new Map(); 
 
-    // --- [⭐️ NEW ⭐️] 롤백(JUMP) 현상 방지용 변수 (800ms 적용 유지) ---
+    // --- 롤백(JUMP) 현상 방지용 변수 (800ms 적용 유지) ---
     let justReleasedPadId = null; 
     let justReleasedTimer = null; 
 
@@ -41,7 +41,6 @@ document.addEventListener('DOMContentLoaded', () => {
     async function sendCommandToFirestore(action, data = {}) {
         if (!SESSION_ID) return;
 
-        // 선택된 아이템이 없으면 'item_click'이나 'control_one'이 아닌 명령은 전송하지 않음
         if (action !== 'item_click' && action !== 'control_one' && selectedDecoIds.length === 0) {
              console.warn("No item selected for action:", action);
              return;
@@ -126,7 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let pad = existingPads.get(deco.id);
 
             const mobileNormY = deco.y_mobile; 
-            const mobileNormX = 1.0 - deco.x_mobile; // PC와 모바일 좌표계 역전
+            const mobileNormX = 1.0 - deco.x_mobile; 
             const pixelX = mobileNormX * frameWidth;
             const pixelY = mobileNormY * frameHeight;
 
@@ -231,9 +230,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 let newPadLeft = currentPadLeft + dx;
                 let newPadTop = currentPadTop + dy;
                 
-                // 캔버스 경계 제한 로직만 유지
-                newPadLeft = Math.max(0, Math.min(newPadLeft, frameWidth));
-                newPadTop = Math.max(0, Math.min(newPadTop, frameHeight));
+                // ❌ [핵심 수정: 경계 제한 로직 제거] ❌
+                // newPadLeft = Math.max(0, Math.min(newPadLeft, frameWidth));
+                // newPadTop = Math.max(0, Math.min(newPadTop, frameHeight));
 
                 // 1. 로컬 UI 즉시 업데이트
                 pad.style.left = `${newPadLeft}px`;
