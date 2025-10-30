@@ -50,10 +50,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 3000);
     }
     
-    // ⭐ [속도 개선] 디바운스 타이머
-    let syncDebounceTimer = null;
-    let thumbnailDebounceTimer = null;
-
     // =========================================================================
     // ⭐ 🚨통신 핵심 로직 (Firebase)🚨 ⭐
     // =========================================================================
@@ -92,20 +88,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    // ⭐ [속도 개선] 디바운스(Debounce)된 동기화 함수
-    function debouncedSyncState() {
-        if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
-        syncDebounceTimer = setTimeout(() => {
-            syncStateToFirestore();
-        }, 200); // 0.2초간 추가 작업이 없으면 동기화
-    }
-
-    function debouncedUpdateThumbnail() {
-        if (thumbnailDebounceTimer) clearTimeout(thumbnailDebounceTimer);
-        thumbnailDebounceTimer = setTimeout(() => {
-            updateThumbnail(currentScene);
-        }, 200); // 0.2초간 추가 작업이 없으면 썸네일 갱신
-    }
     
     // 모바일 -> PC (조작 명령 수신 리스너)
     let lastCommandTimestamp = 0;
@@ -186,7 +168,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // ⭐ [수정] PC에서 발생한 변경일 때만 컨트롤러로 동기화 (메아리 방지)
         if (source === 'pc') {
-            syncStateToFirestore(); // PC 클릭은 즉시 동기화
+            syncStateToFirestore(); 
         }
     }
 
@@ -206,9 +188,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         updateElementStyle(decoData);
         
-        // ⭐ [속도 개선] 즉시 동기화 대신 디바운스된 동기화 사용
-        debouncedSyncState();
-        debouncedUpdateThumbnail();
+        // ⭐ [속도 개선]
+        // syncStateToFirestore(); // <-- 제거 (메아리 방지)
+        // updateThumbnail(currentScene); // <-- 제거 (느린 작업)
     }
 
     // --- [수정됨] 컨트롤러 버튼 조작 처리 함수 ---
@@ -251,8 +233,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     // ⭐ [수정] 삭제는 컨트롤러에서 발생했으므로 'controller' 소스 전달
                     selectItems(selectedDecoIds, 'controller'); 
                 } else {
-                    // ⭐ [속도 개선] 즉시 동기화 대신 디바운스된 동기화 사용
-                    debouncedSyncState();
+                    syncStateToFirestore(); // 선택 변경 없으므로 그냥 동기화
                 }
                 updateThumbnail(currentScene); // 삭제는 썸네일 즉시 반영
                 return; 
@@ -261,9 +242,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 공통 업데이트 (삭제 제외)
         updateElementStyle(decoData);
-        // ⭐ [속도 개선] 즉시 동기화 대신 디바운스된 동기화 사용
-        debouncedSyncState();
-        debouncedUpdateThumbnail();
+        // ⭐ [속도 개선]
+        // syncStateToFirestore(); // <-- 제거 (메아리 방지)
+        // updateThumbnail(currentScene); // <-- 제거 (느린 작업)
     }
 
     // --- 아이템 스타일만 가볍게 업데이트하는 함수 ---
@@ -552,7 +533,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const startAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * (180 / Math.PI);
                 let startRotation = decoData.rotation;
                 document.onmousemove = function(e_move) {
-                    const currentAngle = Math.atan2(e_move.clientY - centerY, e.clientX - centerX) * (180 / Math.PI);
+                    const currentAngle = Math.atan2(e_move.clientY - centerY, e_clientX - centerX) * (180 / Math.PI);
                     let newRotation = startRotation + (currentAngle - startAngle);
                     const snapThreshold = 6;
                     const snappedAngle = Math.round(newRotation / 90) * 90;
