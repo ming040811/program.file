@@ -311,28 +311,28 @@ body {
     z-index: 2000;
 }
 
-/* 🚀 [최종 크기 수정] 큐알코드 닫기 버튼 스타일 */
+/* 🚀 [최종 크기 수정 + !important 적용] 큐알코드 닫기 버튼 스타일 */
 .qrcode-close-button {
     /* 크기를 확 키움: 60px */
-    height: 60px; 
-    width: 120px; /* 가로 길이 확대 */
+    height: 60px !important; 
+    width: 120px !important; /* 가로 길이 확대 */
     
-    background-color: #4F99B2; /* 요청 색상 */
-    color: white; /* 요청 색상 */
-    border-radius: 8px; /* 둥근 정도도 약간 키움 */
+    background-color: #4F99B2 !important; /* 요청 색상 */
+    color: white !important; /* 요청 색상 */
+    border-radius: 8px !important; /* 둥근 정도도 약간 키움 */
     
     /* 폰트 크기 확대: 20px */
-    border: none;
-    cursor: pointer;
-    font-size: 20px; 
-    font-weight: bold;
+    border: none !important;
+    cursor: pointer !important;
+    font-size: 20px !important; 
+    font-weight: bold !important;
     
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0 15px;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 15px !important;
 }
 
 .qrcode-close-button:hover {
-    background-color: #63adc7; /* 호버 효과 */
+    background-color: #63adc7 !important; /* 호버 효과 */
 }
