@@ -31,8 +31,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let selectedDecoIds = []; 
     let toastTimer = null;
 
-    // --- (⭐️ NEW ⭐️) 성능 개선을 위한 쓰로틀링 타이머 ---
-    let throttleSyncTimer = null;
+    // --- (⭐️ 제거 ⭐️) ---
+    // let throttleSyncTimer = null; // 이 줄 제거
+    // --- (⭐️ 제거 ⭐️) ---
+
 
     // ... (showLimitToast 함수는 이전과 동일) ...
     function showLimitToast() {
@@ -54,11 +56,11 @@ document.addEventListener('DOMContentLoaded', () => {
     async function syncStateToFirestore() {
         if (!canvas || canvas.offsetWidth === 0 || canvas.offsetHeight === 0) return;
 
-        // [⭐️ NEW] 쓰로틀 타이머가 예약된 것을 실행했으므로 타이머를 비웁니다.
-        if (throttleSyncTimer) {
-            clearTimeout(throttleSyncTimer);
-            throttleSyncTimer = null;
-        }
+        // (⭐️ 제거 ⭐️)
+        // if (throttleSyncTimer) {
+        //     clearTimeout(throttleSyncTimer);
+        //     throttleSyncTimer = null;
+        // } // 이 블록 제거
 
         const canvasWidth = canvas.offsetWidth;
         const canvasHeight = canvas.offsetHeight;
@@ -89,19 +91,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- (⭐️ NEW ⭐️) 쓰로틀링된 동기화 요청 함수 ---
-    function requestSyncThrottled() {
-        // 이미 동기화 타이머가 예약되어 있다면, 아무것도 하지 않습니다.
-        if (throttleSyncTimer) {
-            return;
-        }
-        // 100ms 뒤에 동기화를 예약합니다.
-        // (100ms 이내에 들어오는 모든 요청은 이 타이머 하나로 처리됩니다)
-        throttleSyncTimer = setTimeout(() => {
-            syncStateToFirestore(); // 100ms 뒤 syncStateToFirestore 실행
-            throttleSyncTimer = null; // 타이머 초기화
-        }, 100); // 100ms (0.1초) 지연
-    }
+    // --- (⭐️ 제거 ⭐️) 쓰로틀링된 동기화 요청 함수 ---
+    // function requestSyncThrottled() { ... } // 이 함수 전체 제거
     
     
     // 모바일 -> PC (조작 명령 수신 리스너)
@@ -131,7 +122,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         });
                     }
 
-                    // 명령 처리 후, Firestore에서 command 필드 삭제
                     CONTROLLER_REF.update({
                         command: firebase.firestore.FieldValue.delete()
                     }).catch(error => {
@@ -160,7 +150,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (qrcodeDiv && typeof QRCode !== 'undefined') {
                 new QRCode(qrcodeDiv, { text: controllerUrl, width: 256, height: 256 });
             }
-            syncStateToFirestore(); // QR 켤 때는 즉시 동기화
+            syncStateToFirestore(); 
         });
     }
 
@@ -180,7 +170,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 selectedDecoIds.push(id);
             }
         }
-        // [중요] 선택/해제는 즉시 동기화합니다. (쓰로틀링 없음)
         selectItems(selectedDecoIds, 'pc'); 
     }
 
@@ -193,8 +182,7 @@ document.addEventListener('DOMContentLoaded', () => {
             el.classList.toggle('selected', selectedDecoIds.includes(el.id));
         });
         
-        // [중요] 선택/해제(selectItems)는 항상 즉시 동기화합니다.
-        syncStateToFirestore(); 
+        syncStateToFirestore(); // [중요] 항상 즉시 동기화
     }
 
     // --- [⭐️⭐️⭐️ 수정됨 ⭐️⭐️⭐️] 모바일 좌표계로 아이템 이동 처리 ---
@@ -211,12 +199,11 @@ document.addEventListener('DOMContentLoaded', () => {
         decoData.y = (mobileControllerY * canvasHeight) - (decoData.height / 2);
 
         updateElementStyle(decoData);
-        updateThumbnail(currentScene); // 썸네일은 갱신
+        updateThumbnail(currentScene); 
         
-        // ⭐ [수정]
-        // 즉시 동기화 대신, 쓰로틀링된 동기화를 '요청'합니다.
-        // syncStateToFirestore(); // <-- 이 줄 대신
-        requestSyncThrottled(); // <-- 이 함수 사용
+        // ⭐ [수정] 쓰로틀링된 동기화 대신, '즉시' 동기화를 호출합니다.
+        // requestSyncThrottled(); // <-- 이 줄 대신
+        syncStateToFirestore(); // <-- 이 함수 사용
     }
 
     // --- [⭐️⭐️⭐️ 수정됨 ⭐️⭐️⭐️] 컨트롤러 버튼 조작 처리 함수 ---
@@ -227,11 +214,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const step = { rotate: 5, scale: 0.02 }; 
         
         if (action === 'rotate') {
+            // ... (회전 로직 동일) ...
             const direction = data.direction;
             if (direction === 'LEFT') { decoData.rotation -= step.rotate; }
             else if (direction === 'RIGHT') { decoData.rotation += step.rotate; }
             
         } else if (action === 'scale') {
+            // ... (크기 조절 로직 동일) ...
             const direction = data.direction;
             const factor = 1 + (direction === 'UP' ? step.scale : -step.scale);
             const currentWidth = decoData.width;
@@ -248,6 +237,7 @@ document.addEventListener('DOMContentLoaded', () => {
             decoData.scaleX *= -1;
 
         } else if (action === 'delete') {
+            // ... (삭제 로직 동일 - selectItems/syncStateToFirestore가 이미 호출됨) ...
             const index = storyData[currentScene].decorations.findIndex(d => d.id === id);
             if (index > -1) {
                 storyData[currentScene].decorations.splice(index, 1);
@@ -256,14 +246,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 if (selectedDecoIds.includes(id)) {
                     selectedDecoIds = selectedDecoIds.filter(i => i !== id);
-                    // [중요] 삭제는 즉시 동기화 (selectItems가 syncStateToFirestore 호출)
                     selectItems(selectedDecoIds, 'pc'); 
                 } else {
-                    // [중요] 삭제는 즉시 동기화
                     syncStateToFirestore();
                 }
                 updateThumbnail(currentScene);
-                return; // 함수 종료
+                return; 
             }
         }
 
@@ -271,15 +259,13 @@ document.addEventListener('DOMContentLoaded', () => {
         updateElementStyle(decoData);
         updateThumbnail(currentScene);
         
-        // ⭐ [수정]
-        // 회전/크기/반전 처리 후, 쓰로틀링된 동기화를 '요청'합니다.
-        // syncStateToFirestore(); // <-- 이 줄 대신
-        requestSyncThrottled(); // <-- 이 함수 사용
+        // ⭐ [수정] 쓰로틀링된 동기화 대신, '즉시' 동기화를 호출합니다.
+        // requestSyncThrottled(); // <-- 이 줄 대신
+        syncStateToFirestore(); // <-- 이 함수 사용
     }
 
     // --- (이하 나머지 코드는 이전과 동일합니다) ---
 
-    // --- 아이템 스타일만 가볍게 업데이트하는 함수 ---
     function updateElementStyle(decoData) {
         const element = document.getElementById(decoData.id);
         if (!element) return;
@@ -294,7 +280,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- 장식 아이템 추가 이벤트 핸들러 ---
     document.querySelectorAll('.asset-item[data-type="decoration"]').forEach(item => {
         item.addEventListener('click', () => {
             if (storyData[currentScene].decorations.length >= 3) {
@@ -317,12 +302,10 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             storyData[currentScene].decorations.push(newDeco);
             renderScene(currentScene);
-            // [중요] 아이템 추가는 즉시 동기화 (selectItems가 호출)
             selectItems([newDeco.id], 'pc'); 
         });
     });
 
-    // --- 씬 렌더링 함수 ---
     function renderScene(sceneNumber) {
         if (!canvas) return;
         const data = storyData[sceneNumber];
@@ -338,13 +321,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const newDecoIds = new Set(data.decorations.map(d => d.id));
         selectedDecoIds = selectedDecoIds.filter(id => newDecoIds.has(id));
         
-        // [중요] 씬 변경은 즉시 동기화 (selectItems가 호출)
         selectItems(selectedDecoIds, 'pc'); 
         
         setTimeout(() => updateThumbnail(sceneNumber), 50);
     }
 
-    // --- 장식 요소 생성 함수 ---
     function createDecorationElement(decoData) {
          if (!canvas) return;
         const item = document.createElement('div');
@@ -379,20 +360,16 @@ document.addEventListener('DOMContentLoaded', () => {
         makeInteractive(item);
     }
 
-    // --- 인터랙티브 기능 부여 함수 (PC 직접 조작) ---
     function makeInteractive(element) {
         const decoData = storyData[currentScene].decorations.find(d => d.id === element.id);
         if (!decoData) return;
 
-        // PC 클릭 시 선택 로직
         element.addEventListener('mousedown', (e) => {
             if (e.target.closest('.handle') || e.target.closest('.controls')) return;
-            // [중요] PC 클릭은 즉시 동기화 (handleItemClick -> selectItems 호출)
             handleItemClick(element.id);
             e.stopPropagation();
         });
 
-        // 이동 (드래그)
         let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
         element.onmousedown = function(e) {
             if (e.target.closest('.handle') || e.target.closest('.controls')) return;
@@ -409,7 +386,6 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         function elementDrag(e) {
-            // ... (스냅 로직 포함, 내용 동일) ...
             if (verticalGuide) verticalGuide.style.display = 'none';
             if (horizontalGuide) horizontalGuide.style.display = 'none';
             pos1 = pos3 - e.clientX;
@@ -464,17 +440,14 @@ document.addEventListener('DOMContentLoaded', () => {
             decoData.y = element.offsetTop;
             
             updateThumbnail(currentScene); 
-            // [중요] PC 조작 완료는 즉시 동기화
             syncStateToFirestore(); 
         }
         
-        // 크기 조절 (리사이즈)
         element.querySelectorAll('.handle:not(.rotator)').forEach(handle => {
             handle.onmousedown = initResize;
         });
         
         function initResize(e) {
-            // ... (리사이즈 로직, 내용 동일) ...
             e.preventDefault(); e.stopPropagation();
             const handleType = e.target.classList[1];
             const rect = element.getBoundingClientRect();
@@ -524,16 +497,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 decoData.x = element.offsetLeft;
                 decoData.y = element.offsetTop;
                 updateThumbnail(currentScene); 
-                // [중요] PC 조작 완료는 즉시 동기화
                 syncStateToFirestore(); 
             };
         }
         
-        // 회전 (로테이터 핸들)
         const rotator = element.querySelector('.rotator');
         if (rotator) {
             rotator.onmousedown = function(e) {
-                // ... (회전 로직, 내용 동일) ...
                 e.preventDefault(); e.stopPropagation();
                 const rect = element.getBoundingClientRect();
                 const centerX = rect.left + rect.width / 2;
@@ -554,20 +524,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.onmouseup = function() {
                     document.onmousemove = null; document.onmouseup = null;
                     updateThumbnail(currentScene);
-                    // [중요] PC 조작 완료는 즉시 동기화
                     syncStateToFirestore(); 
                 };
             };
         }
 
-        // 컨트롤 버튼 (반전, 삭제)
         const flipButton = element.querySelector('.flip');
         if (flipButton) {
             flipButton.addEventListener('click', (e) => {
                 e.stopPropagation();
                 decoData.scaleX *= -1;
                 updateElementStyle(decoData);
-                // [중요] PC 조작은 즉시 동기화
                 syncStateToFirestore();
                 updateThumbnail(currentScene);
             });
@@ -576,15 +543,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (deleteButton) {
             deleteButton.addEventListener('click', (e) => {
                 e.stopPropagation();
-                // [중요] PC 조작은 즉시 동기화 (handleControllerControl -> delete가 호출)
                 handleControllerControl(element.id, 'delete');
             });
         }
-    } // --- makeInteractive 끝 ---
+    } 
     
-    // --- 8. 헬퍼 함수 (회전된 좌표 계산) ---
     function getRotatedCorners(rect, angle) {
-        // ... (내용 동일) ...
         const center = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
         const corners = {
             tl: { x: rect.left, y: rect.top }, tr: { x: rect.right, y: rect.top },
@@ -596,7 +560,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return corners;
     }
     function rotatePoint(point, center, angle) {
-        // ... (내용 동일) ...
         const dx = point.x - center.x;
         const dy = point.y - center.y;
         const newX = center.x + dx * Math.cos(angle) - dy * Math.sin(angle);
@@ -604,29 +567,23 @@ document.addEventListener('DOMContentLoaded', () => {
         return { x: newX, y: newY };
     }
 
-    // --- 캔버스 외부 클릭 시 선택 해제 ---
     document.addEventListener('mousedown', (e) => {
         if (!e.target.closest('.decoration-item') && !e.target.closest('.asset-item') && !e.target.closest('#qr-modal')) {
-            // [중요] 즉시 동기화 (selectItems가 호출)
             selectItems([], 'pc');
         }
     });
 
-    // --- 10. 씬 전환 ---
     const scenes = document.querySelectorAll('.scene');
     scenes.forEach(scene => {
         scene.addEventListener('click', () => {
             scenes.forEach(s => s.classList.remove('active'));
             scene.classList.add('active');
             currentScene = scene.dataset.scene;
-            // [중요] 즉시 동기화 (renderScene -> selectItems가 호출)
             renderScene(currentScene); 
         });
     });
     
-    // --- 11. 타임라인 썸네일 업데이트 ---
     function updateThumbnail(sceneNumber) {
-        // ... (내용 동일) ...
         const sceneEl = document.querySelector(`.scene[data-scene="${sceneNumber}"]`);
         if (sceneEl) {
             sceneEl.innerHTML = ''; 
