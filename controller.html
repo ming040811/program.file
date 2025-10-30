@@ -10,33 +10,33 @@
 
     <div class="container">
         <div class="main-canvas-frame">
-            <div class="scene-info">연결 대기 중...</div>
+            <div class="scene-info">Scene 1 연결</div>
             
             <div class="touch-pads-wrapper">
                 </div>
         </div>
 
         <div class="bottom-controls">
-            <button class="delete-btn" id="delete-selected-deco" disabled><span>삭제</span></button>
+            <button class="delete-btn" id="delete-selected-deco"><span>삭제</span></button>
 
             <div class="control-group-wrapper">
                 
                 <div class="control-group">
-                    <button class="control-btn align" data-action="align" data-direction="UP" title="앞으로 가져오기" disabled>v</button>
+                    <button class="control-btn align" data-action="flip" data-direction="UP" title="좌우반전">^</button>
                     <p><span>좌우반전</span></p>
-                    <button class="control-btn align" data-action="align" data-direction="DOWN" title="뒤로 보내기" disabled>v</button>
+                    <button class="control-btn align" data-action="flip" data-direction="DOWN" title="좌우반전">v</button>
                 </div>
             
                 <div class="control-group">
-                    <button class="control-btn scale" data-action="scale" data-direction="UP" title="크게" disabled><span>+</span></button>
+                    <button class="control-btn scale" data-action="scale" data-direction="UP" title="크게"><span>+</span></button>
                     <p><span>크기</span></p>
-                    <button class="control-btn scale" data-action="scale" data-direction="DOWN" title="작게" disabled><span>-</span></button>
+                    <button class="control-btn scale" data-action="scale" data-direction="DOWN" title="작게"><span>-</span></button>
                 </div>
 
                 <div class="control-group">
-                    <button class="control-btn rotate" data-action="rotate" data-direction="LEFT" title="반시계 회전" disabled>^</button>
+                    <button class="control-btn rotate" data-action="rotate" data-direction="LEFT" title="반시계 회전">^</button>
                     <p><span>회전</span></p>
-                    <button class="control-btn rotate" data-action="rotate" data-direction="RIGHT" title="시계 회전" disabled>v</button>
+                    <button class="control-btn rotate" data-action="rotate" data-direction="RIGHT" title="시계 회전">v</button>
                 </div>
             </div>
         </div>
@@ -46,6 +46,7 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
 
     <script>
+      // ⭐ [필수] Firebase 설정 (PC와 동일해야 함)
       const firebaseConfig = {
         apiKey: "AIzaSyBkCdi2LZvWoGGnv3dT8Kq76TOz42L4GDw",
         authDomain: "controlling-82b19.firebaseapp.com",
@@ -55,12 +56,14 @@
         appId: "1:153225611363:web:4a2669dedd056c27ce9056",
         measurementId: "G-QLXFYJGEHB"
       };
+    
       if (!firebase.apps.length) {
           firebase.initializeApp(firebaseConfig);
       }
-      // controller.js에서 사용할 db 객체 선언
+      
       const db = firebase.firestore();
     </script>
+    
     <script src="controller.js"></script>
 </body>
 </html>
