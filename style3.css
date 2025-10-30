@@ -105,7 +105,7 @@ body {
     align-items: center;
     padding: 20px;
     overflow: hidden;
-    position: relative; 
+    position: relative;
 }
 
 #canvas {
@@ -115,7 +115,7 @@ body {
     max-height: 100%;
     background-color: white;
     position: relative;
-    overflow: hidden; 
+    overflow: hidden;
     background-size: cover;
     background-position: center;
 }
@@ -193,9 +193,9 @@ body {
     border-radius: 3px;
     line-height: 0;
 }
- 
-.controls button:hover { 
-    background-color: #f0f0f0; 
+
+.controls button:hover {
+    background-color: #f0f0f0;
 }
 
 .controls button:active {
@@ -210,23 +210,23 @@ body {
 /* 스냅 가이드 */
 .snap-guide {
     position: absolute;
-    background-color: rgba(255, 77, 77, 0.5); 
+    background-color: rgba(255, 77, 77, 0.5);
     display: none;
     z-index: 999;
-    pointer-events: none; 
+    pointer-events: none;
 }
 
 .vertical-guide {
-    width: 2px; 
-    height: 100%; 
+    width: 2px;
+    height: 100%;
     top: 0;
     left: 50%;
     transform: translateX(-50%);
 }
 
 .horizontal-guide {
-    height: 2px; 
-    width: 100%; 
+    height: 2px;
+    width: 100%;
     top: 50%;
     left: 0;
     transform: translateY(-50%);
@@ -261,7 +261,7 @@ body {
     position: relative;
     background-size: cover;
     background-position: center;
-    overflow: hidden; 
+    overflow: hidden;
 }
 
 .scene.active {
@@ -284,57 +284,49 @@ body {
     position: fixed;
     bottom: 50px; /* ⭐ 하단에서 50px 위로 (이전 20px에서 상향 조정) */
     left: 50%;
-    transform: translateX(-50%); 
-    
-    width: 1300px; 
-    max-width: 90vw; 
-    height: 50px; 
-    
-    background-color: #3A3A3A; 
-    color: white; 
-    border-radius: 8px; 
-    
-    align-items: center; 
+    transform: translateX(-50%);
+
+    width: 1300px;
+    max-width: 90vw;
+    height: 50px;
+
+    background-color: #3A3A3A;
+    color: white;
+    border-radius: 8px;
+
+    align-items: center;
     justify-content: center;
-    
+
     padding: 10px 20px;
     box-sizing: border-box;
     text-align: center;
-    font-size: 14px; 
-    
+    font-size: 14px;
+
     /* ⭐ 글자 한 줄로 강제 */
     white-space: nowrap; /* 텍스트를 한 줄에 강제로 표시 */
     overflow: hidden; /* 넘치는 텍스트 숨김 */
     text-overflow: ellipsis; /* 넘치는 텍스트를 ...으로 표시 */
-    
-    z-index: 2000; 
+
+    z-index: 2000;
     /* 그림자 제거 유지 */
 }
 
-/*
- * =======================================================
- * ⭐ [추가됨] QR 코드 닫기 버튼 스타일
- * =======================================================
- */
-.qr-close-button {
-    /* 요청하신 색상: 4F99B2, 닫기 글자 색: 흰색 */
-    background-color: #4F99B2;
+/* 🚀 [추가됨] 큐알코드 닫기 버튼 스타일 */
+.qrcode-close-button {
+    height: 30px; 
+    width: 65px; 
+    background-color: #4F99B2; 
     color: white;
-    
-    /* 끝을 조금만 둥글게 (5px -> 8px) */
-    border-radius: 8px; 
-    
-    /* 세로 크기는 유지하고 가로 길이 아주 살짝 더 늘림 (8px 16px -> 8px 20px) */
-    padding: 8px 20px; 
-
-    /* 다른 버튼들과 일관성을 맞춘 기본 스타일 */
+    border-radius: 4px; /* 조금만 둥글게 */
     border: none;
     cursor: pointer;
     font-size: 14px;
     font-weight: bold;
-    font-family: 'Malgun Gothic', sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-.qr-close-button:hover {
-    background-color: #407f94; /* 호버 시 살짝 어두운 색상 */
+.qrcode-close-button:hover {
+    background-color: #63adc7; 
 }
