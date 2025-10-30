@@ -72,20 +72,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 const state = doc.data().pcState;
                 
                 sceneInfoEl.textContent = `Scene ${state.scene} 연결됨`;
-                
-                // 1. 새 아이템 목록 수신
                 currentDecoList = state.decoList || []; 
-                
-                // 2. PC가 보낸 'selectedIds'를 로컬 'selectedDecoIds'에 덮어쓰기 (SSOT)
-                selectedDecoIds = state.selectedIds || [];
+                selectedDecoIds = state.selectedIds || []; // PC의 상태를 덮어쓰기
 
-                // 3. UI 업데이트
                 updateTouchPads();
-
             } else {
                 sceneInfoEl.textContent = "PC 연결 대기 중...";
                 currentDecoList = [];
-                selectedDecoIds = []; // 연결이 끊기면 리셋
+                selectedDecoIds = []; 
                 updateTouchPads();
             }
         }, (error) => {
@@ -98,7 +92,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // ⭐ 🚨 하단 버튼 상태 업데이트 로직 (분리) 🚨 ⭐
     // =========================================================================
     function updateButtonDisabledState() {
-        // PC에서 받은 'selectedDecoIds' 상태를 기반으로 작동
         const isSelected = selectedDecoIds.length > 0;
         document.querySelectorAll('.control-btn').forEach(btn => {
             btn.disabled = !isSelected;
@@ -112,15 +105,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // ⭐ 🚨 DOM Reconciliation (비교/조정) 방식으로 수정된 함수 🚨 ⭐
     // =========================================================================
     function updateTouchPads() {
-        if (mainCanvasFrame.offsetWidth === 0) return; // 프레임이 그려지기 전이면 중단
+        if (mainCanvasFrame.offsetWidth === 0) return; 
 
         const frameWidth = mainCanvasFrame.offsetWidth;
         const frameHeight = mainCanvasFrame.offsetHeight;
-
-        // 현재 드래그 중인 ID Set (이 패드들은 PC 상태에 의해 덮어쓰이지 않음)
         const draggingIds = new Set(Array.from(activeTouches.values()).map(data => data.decoId));
-
         const existingPads = new Map();
+        
         touchPadsWrapper.querySelectorAll('.touch-pad').forEach(pad => {
             existingPads.set(pad.dataset.id, pad);
         });
@@ -139,13 +130,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 // 1a. 기존 패드 업데이트
                 existingPads.delete(deco.id); 
 
-                // 드래그 중이 아닐 때만 PC가 보낸 위치로 업데이트 (깜박임 방지)
                 if (!draggingIds.has(deco.id)) {
                     pad.style.left = `${pixelX}px`;
                     pad.style.top = `${pixelY}px`;
                 }
                 
-                // 선택 상태는 PC의 상태(selectedDecoIds)를 무조건 따름
                 pad.classList.toggle('selected', selectedDecoIds.includes(deco.id));
 
             } else {
@@ -163,21 +152,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     pad.classList.add('selected');
                 }
 
-                // --- 4. 클릭 (선택/해제) 이벤트 리스너 (새 패드에만 추가) ---
-                pad.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    e.preventDefault(); 
-                    
-                    const decoId = deco.id; 
-                    
-                    // 컨트롤러는 '클릭'만 PC에 알리고, 선택/해제 로직은 PC가 담당
-                    sendCommandToFirestore('item_click', { id: decoId });
-                    
-                    // 로컬 상태를 직접 수정하지 않음 (PC의 응답(pcState)을 기다림)
-                });
+                // --- 4. [⭐️⭐️⭐️ 수정 ⭐️⭐️⭐️] ---
+                // 'click' 이벤트 리스너를 여기서 제거합니다.
+                // 'touchend'에서 탭(Tap)을 직접 감지하여 처리합니다.
+                // ------------------------------------
 
                 touchPadsWrapper.appendChild(pad);
-                
                 setTimeout(() => { pad.style.opacity = '1'; }, 10); 
             }
         });
@@ -194,8 +174,9 @@ document.addEventListener('DOMContentLoaded', () => {
     } // --- updateTouchPads 끝 ---
 
 
-    // --- 5. [⭐️⭐️⭐️ 수정됨 ⭐️⭐️⭐️] 멀티터치 이동 이벤트 핸들러 ---
+    // --- 5. [⭐️⭐️⭐️ 수정됨 ⭐️⭐️⭐️] 멀티터치 이벤트 핸들러 ---
     
+    // [수정] 'touchstart'는 이제 '탭' 감지를 위해 *모든* 패드 터치를 등록합니다.
     touchPadsWrapper.addEventListener('touchstart', (e) => {
         const frameRect = mainCanvasFrame.getBoundingClientRect();
         const frameWidth = frameRect.width;
@@ -204,14 +185,10 @@ document.addEventListener('DOMContentLoaded', () => {
         for (const touch of e.changedTouches) {
             const targetPad = touch.target.closest('.touch-pad');
             
-            // 선택된 아이템(selectedDecoIds)만 드래그 시작
-            if (targetPad && selectedDecoIds.includes(targetPad.dataset.id)) {
-                
-                // ⭐ [수정]
-                // 이 줄이 'click' 이벤트를 막고 있었습니다.
-                // 이 줄을 삭제(또는 주석 처리)합니다.
-                // e.preventDefault(); // <-- 이 줄 삭제!
-                
+            // 패드를 터치했다면 (선택 여부와 관계없이)
+            if (targetPad) {
+                // e.preventDefault(); // <-- 클릭(탭) 감지를 위해 여전히 제거된 상태여야 함
+
                 const decoId = targetPad.dataset.id;
                 
                 activeTouches.set(touch.identifier, {
@@ -221,93 +198,100 @@ document.addEventListener('DOMContentLoaded', () => {
                     lastY: touch.clientY,
                     frameWidth: frameWidth,
                     frameHeight: frameHeight,
-                    isThrottled: false
+                    isThrottled: false,
+                    isDragging: false // <-- [⭐️ NEW] 탭/드래그 구분을 위한 플래그
                 });
-                targetPad.classList.add('active'); 
+
+                // 시각적 피드백: 선택된 아이템을 터치했을 때만 'active'
+                if (selectedDecoIds.includes(decoId)) {
+                    targetPad.classList.add('active'); 
+                }
             }
         }
-    }, { passive: false }); // passive: false는 유지 (touchmove에서 preventDefault를 위함)
+    }, { passive: false }); 
 
-    // ⭐ [성능/좌표 수정] touchmove 이벤트 핸들러 (스로틀링 적용)
+    // [수정] 'touchmove'는 'isDragging' 플래그를 true로 설정합니다.
     touchPadsWrapper.addEventListener('touchmove', (e) => {
-        // 드래그가 시작되었다면 (activeTouches > 0), 스크롤 방지
         if (activeTouches.size > 0) {
-             e.preventDefault(); 
+             e.preventDefault(); // 드래그 시작 시 스크롤 방지
         }
 
         for (const touch of e.changedTouches) {
             const dragData = activeTouches.get(touch.identifier);
 
             if (dragData) {
-                const { pad, decoId, lastX, lastY, frameWidth, frameHeight } = dragData;
+                // [⭐️ NEW] 손가락이 움직였으므로 '드래그'로 확정
+                dragData.isDragging = true; 
 
-                const dx = touch.clientX - lastX;
-                const dy = touch.clientY - lastY;
+                // --- (이하 드래그 로직은 이전과 동일) ---
                 
-                let currentPadLeft = parseFloat(pad.style.left);
-                let currentPadTop = parseFloat(pad.style.top);
-                
-                let newPadLeft = currentPadLeft + dx;
-                let newPadTop = currentPadTop + dy;
-
-                // 프레임 경계 제한
-                newPadLeft = Math.max(0, Math.min(newPadLeft, frameWidth));
-                newPadTop = Math.max(0, Math.min(newPadTop, frameHeight));
-
-                // 1. [성능] 로컬 UI는 즉시 업데이트 (부드러운 움직임)
-                pad.style.left = `${newPadLeft}px`;
-                pad.style.top = `${newPadTop}px`;
-                
-                dragData.lastX = touch.clientX;
-                dragData.lastY = touch.clientY;
-
-                // 2. [성능] 네트워크 전송은 50ms 마다 한번씩만 (스로틀링)
-                if (dragData.isThrottled) {
+                // 선택된 아이템만 드래그되도록 보장
+                if (!selectedDecoIds.includes(dragData.decoId)) {
                     continue; 
                 }
 
+                const { pad, decoId, lastX, lastY, frameWidth, frameHeight } = dragData;
+                const dx = touch.clientX - lastX;
+                const dy = touch.clientY - lastY;
+                let currentPadLeft = parseFloat(pad.style.left);
+                let currentPadTop = parseFloat(pad.style.top);
+                let newPadLeft = currentPadLeft + dx;
+                let newPadTop = currentPadTop + dy;
+                newPadLeft = Math.max(0, Math.min(newPadLeft, frameWidth));
+                newPadTop = Math.max(0, Math.min(newPadTop, frameHeight));
+
+                pad.style.left = `${newPadLeft}px`;
+                pad.style.top = `${newPadTop}px`;
+                dragData.lastX = touch.clientX;
+                dragData.lastY = touch.clientY;
+
+                if (dragData.isThrottled) {
+                    continue; 
+                }
                 dragData.isThrottled = true;
                 setTimeout(() => {
                     if (activeTouches.has(touch.identifier)) {
                         activeTouches.get(touch.identifier).isThrottled = false;
                     }
-                }, 50); // 50ms
+                }, 50); 
                 
+                const mobileNormX = newPadLeft / frameWidth;
+                const mobileNormY = newPadTop / frameHeight;
+                const logic_Site_TB = 1.0 - mobileNormX;
+                const logic_Site_LR = mobileNormY;
 
-                // 3. [좌표] 정규화
-                const mobileNormX = newPadLeft / frameWidth;  // 컨트롤러 좌(0) ~ 우(1)
-                const mobileNormY = newPadTop / frameHeight; // 컨트롤러 위(0) ~ 아래(1)
-                
-                // [좌표 매핑]
-                const logic_Site_TB = 1.0 - mobileNormX; // PC Y축 (상/하)
-                const logic_Site_LR = mobileNormY;      // PC X축 (좌/우)
-
-                // 4. [성능] currentDecoList(로컬 상태)도 직접 업데이트 (깜박임 방지)
-                // (PC에서 pcState를 다시 받기 전까지의 임시 상태)
                 const deco = currentDecoList.find(d => d.id === decoId);
                 if (deco) { 
                     deco.x_mobile = logic_Site_TB;
                     deco.y_mobile = logic_Site_LR;
                 }
                 
-                // 5. PC로 'control_one' (move) 명령 전송
                 sendCommandToFirestore('control_one', { 
                     id: decoId, 
                     action: 'move',
-                    x_mobile: logic_Site_TB, // PC의 x_mobile 필드에 사이트 상/하(Y) 로직 전송
-                    y_mobile: logic_Site_LR  // PC의 y_mobile 필드에 사이트 좌/우(X) 로직 전송
+                    x_mobile: logic_Site_TB, 
+                    y_mobile: logic_Site_LR  
                 });
             }
         }
     }, { passive: false }); 
 
-    // 터치 종료/취소 시 activeTouches에서 제거
+    // [수정] 'touchend'는 'isDragging' 플래그를 확인하여 '탭'을 감지합니다.
     const touchEndOrCancel = (e) => {
         for (const touch of e.changedTouches) {
             const dragData = activeTouches.get(touch.identifier);
+
             if(dragData) {
                 dragData.pad.classList.remove('active'); 
+
+                // [⭐️ NEW] 탭(Tap) 감지 로직
+                // 드래그되지 않았다면(isDragging == false) '탭'으로 간주
+                if (dragData.isDragging === false) {
+                    // '클릭' 대신 'item_click' 명령을 여기서 전송
+                    sendCommandToFirestore('item_click', { id: dragData.decoId });
+                }
             }
+            // 탭이든 드래그든, 터치가 끝났으므로 맵에서 제거
             activeTouches.delete(touch.identifier);
         }
     };
@@ -317,7 +301,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // --- 6. 버튼 이벤트 리스너 ---
-    // (명령만 전송, 로컬 상태 변경 없음)
+    // (이전과 동일)
     document.querySelectorAll('.control-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             if (selectedDecoIds.length === 0 || btn.disabled) return;
@@ -332,13 +316,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- 7. 삭제 버튼 ---
-    // (명령만 전송, 로컬 상태 변경 없음)
+    // (이전과 동일)
     deleteButton.addEventListener('click', () => {
         if (selectedDecoIds.length === 0 || deleteButton.disabled) return;
-        
         sendCommandToFirestore('delete_multi');
-        
-        // 로컬 selectedDecoIds를 즉시 비우지 않음 (PC의 응답을 기다림)
     });
     
     // --- 8. 초기화 ---
