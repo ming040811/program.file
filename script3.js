@@ -1,3 +1,5 @@
+// index.js (최종 수정 버전 - 경계 제한 재적용)
+
 document.addEventListener('DOMContentLoaded', () => {
     // ❗️ index.html에서 'db' 객체가 초기화되어야 합니다.
     if (typeof db === 'undefined') {
@@ -34,7 +36,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- 알림창 표시 함수 ---
     function showLimitToast() {
         const toast = document.getElementById('limit-toast-notification');
-        if (!toast) return;
         if (toastTimer) clearTimeout(toastTimer);
         toast.style.display = 'flex'; 
         toastTimer = setTimeout(() => {
@@ -59,10 +60,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const decoHeight = deco.height;
             return {
                 id: deco.id,
-                // PC (x=왼쪽-오른쪽, y=위-아래)와 모바일 (x=위-아래, y=오른쪽-왼쪽) 좌표계 역전 및 정규화
-                // x_mobile은 PC의 Y축 정규화 값 (모바일의 세로축)
+                // x_mobile (모바일 세로) = PC의 Y축 정규화 값 
                 x_mobile: (deco.y + decoHeight / 2) / canvasHeight, 
-                // y_mobile은 PC의 X축 정규화 값 (모바일의 가로축)
+                // y_mobile (모바일 가로) = PC의 X축 정규화 값 
                 y_mobile: (deco.x + decoWidth / 2) / canvasWidth    
             };
         });
@@ -98,7 +98,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (action === 'item_click') {
                         handleItemClick(data.id); 
                     } else if (action === 'control_one') {
-                        // 모바일에서 보낸 x_mobile을 PC의 Y축으로, y_mobile을 PC의 X축으로 역전환
+                        // 역변환: x_mobile -> PC의 Y좌표, y_mobile -> PC의 X좌표
                         handleItemMove(data.id, data.x_mobile, data.y_mobile); 
                     } else if (action === 'control_multi') {
                         data.ids.forEach(id => {
@@ -138,7 +138,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (qrcodeDiv && typeof QRCode !== 'undefined') {
                 new QRCode(qrcodeDiv, { text: controllerUrl, width: 256, height: 256 });
             }
-            syncStateToFirestore(); // QR 켤 때는 즉시 동기화
+            syncStateToFirestore(); 
         });
     }
 
@@ -168,11 +168,11 @@ document.addEventListener('DOMContentLoaded', () => {
             el.classList.toggle('selected', selectedDecoIds.includes(el.id));
         });
         
-        // [중요] 선택/해제는 항상 즉시 동기화
+        // 선택/해제는 항상 즉시 동기화
         syncStateToFirestore(); 
     }
 
-    // --- [⭐️⭐️⭐️ 수정됨 ⭐️⭐️⭐️] 모바일 좌표계로 아이템 이동 처리 ---
+    // --- 모바일 좌표계로 아이템 이동 처리 (Firebase 응답 제거 최적화 유지) ---
     function handleItemMove(id, mobileControllerY, mobileControllerX) {
         if (!canvas || !id) return;
         const decoData = storyData[currentScene].decorations.find(d => d.id === id);
@@ -182,21 +182,26 @@ document.addEventListener('DOMContentLoaded', () => {
         const canvasWidth = canvas.offsetWidth;
         const canvasHeight = canvas.offsetHeight;
         
-        // 역변환: mobileControllerY(모바일의 세로축=PC의 Y축) -> PC의 Y좌표
-        // 역변환: mobileControllerX(모바일의 가로축=PC의 X축) -> PC의 X좌표
-        // x, y는 아이템의 좌상단 위치 (픽셀)
-        decoData.x = (mobileControllerX * canvasWidth) - (decoData.width / 2);
-        decoData.y = (mobileControllerY * canvasHeight) - (decoData.height / 2);
+        // 좌표 역변환 (모바일 좌표 -> PC 픽셀 좌표)
+        let newX = (mobileControllerX * canvasWidth) - (decoData.width / 2);
+        let newY = (mobileControllerY * canvasHeight) - (decoData.height / 2);
 
-        // PC UI는 즉시 업데이트 (부드럽게 보임)
+        // 🌟 [핵심 수정]: PC에서 캔버스 경계를 넘지 않도록 강제 적용 (튕김 방지)
+        newX = Math.max(0, Math.min(newX, canvasWidth - decoData.width));
+        newY = Math.max(0, Math.min(newY, canvasHeight - decoData.height));
+        
+        decoData.x = newX;
+        decoData.y = newY;
+        
+        // PC UI는 즉시 업데이트
         updateElementStyle(decoData);
         updateThumbnail(currentScene); 
         
-        // ⭐ [중요] '이동' 명령은 매우 빈번하므로, PC가 컨트롤러로 응답하지 않습니다.
-        // syncStateToFirestore(); // <-- 이 줄 제거 (최적화 유지)
+        // 이동 명령에 대한 Firebase 응답 동기화는 제거됨 (롤백 방지 최적화)
+        // syncStateToFirestore(); 
     }
 
-    // --- [⭐️⭐️⭐️ 수정됨 ⭐️⭐️⭐️] 컨트롤러 버튼 조작 처리 함수 ---
+    // --- 컨트롤러 버튼 조작 처리 함수 ---
     function handleControllerControl(id, action, data) {
         let decoData = storyData[currentScene].decorations.find(d => d.id === id);
         if (!decoData) return;
@@ -204,7 +209,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const step = { rotate: 5, scale: 0.02 }; 
         
         if (action === 'rotate' || action === 'scale' || action === 'flip') {
-             // (로직 동일)
             if (action === 'rotate') {
                 const direction = data.direction;
                 if (direction === 'LEFT') { decoData.rotation -= step.rotate; }
@@ -229,9 +233,8 @@ document.addEventListener('DOMContentLoaded', () => {
             updateElementStyle(decoData);
             updateThumbnail(currentScene);
             
-            // ⭐ [수정]
-            // '회전/크기/반전'은 중요한 상태 변경이므로, '즉시' 동기화합니다.
-            syncStateToFirestore(); // <-- 이 함수가 다시 필요함 (유지)
+            // 회전/크기/반전은 즉시 동기화
+            syncStateToFirestore(); 
 
         } else if (action === 'delete') {
             const index = storyData[currentScene].decorations.findIndex(d => d.id === id);
@@ -240,7 +243,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const element = document.getElementById(id);
                 if (element) element.remove();
                 
-                // [중요] 삭제는 즉시 동기화
+                // 삭제는 즉시 동기화
                 if (selectedDecoIds.includes(id)) {
                     selectedDecoIds = selectedDecoIds.filter(i => i !== id);
                     selectItems(selectedDecoIds, 'pc'); 
