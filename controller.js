@@ -351,6 +351,8 @@ document.addEventListener('DOMContentLoaded', () => {
         
         sendCommandToFirestore('delete_multi');
         
+        // ⭐ [수정] 삭제 명령 후 로컬 상태를 "즉시" 비웁니다.
+        // PC로부터 응답(삭제된 리스트)을 받기 전까지 컨트롤러가 깔끔하게 보입니다.
         selectedDecoIds = []; 
         
         document.querySelectorAll('.touch-pad.selected').forEach(pad => {
