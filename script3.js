@@ -31,11 +31,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let selectedDecoIds = []; 
     let toastTimer = null;
 
-    // --- (⭐️ 제거 ⭐️) ---
-    // let throttleSyncTimer = null; // 쓰로틀 타이머 변수 제거
-    // --- (⭐️ 제거 ⭐️) ---
-
-
     // --- 알림창 표시 함수 ---
     function showLimitToast() {
         const toast = document.getElementById('limit-toast-notification');
@@ -55,9 +50,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // PC -> 모바일 (상태 동기화)
     async function syncStateToFirestore() {
         if (!canvas || canvas.offsetWidth === 0 || canvas.offsetHeight === 0) return;
-
-        // (⭐️ 제거 ⭐️)
-        // 쓰로틀 타이머 관련 if (throttleSyncTimer) { ... } 블록 제거
 
         const canvasWidth = canvas.offsetWidth;
         const canvasHeight = canvas.offsetHeight;
@@ -87,11 +79,6 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error("Error syncing state to Firestore:", error);
         }
     }
-
-    // --- (⭐️ 제거 ⭐️) ---
-    // function requestSyncThrottled() { ... } // 쓰로틀 함수 전체 제거
-    // --- (⭐️ 제거 ⭐️) ---
-    
     
     // 모바일 -> PC (조작 명령 수신 리스너)
     let lastCommandTimestamp = 0;
@@ -193,12 +180,14 @@ document.addEventListener('DOMContentLoaded', () => {
         decoData.x = (mobileControllerX * canvasWidth) - (decoData.width / 2);
         decoData.y = (mobileControllerY * canvasHeight) - (decoData.height / 2);
 
+        // PC UI는 즉시 업데이트 (부드럽게 보임)
         updateElementStyle(decoData);
         updateThumbnail(currentScene); 
         
-        // ⭐ [수정] 쓰로틀링(지연) 대신, '즉시' 동기화를 호출합니다.
-        // requestSyncThrottled(); // <-- 이 줄 제거
-        syncStateToFirestore(); // <-- 이 함수 사용
+        // ⭐ [수정]
+        // '이동' 명령은 매우 빈번하므로, PC가 컨트롤러로 응답하지 않습니다.
+        // (네트워크 트래픽을 절반으로 줄여 컨트롤러의 '인식' 속도를 높임)
+        // syncStateToFirestore(); // <-- 이 줄 제거 (중요!)
     }
 
     // --- [⭐️⭐️⭐️ 수정됨 ⭐️⭐️⭐️] 컨트롤러 버튼 조작 처리 함수 ---
@@ -234,9 +223,9 @@ document.addEventListener('DOMContentLoaded', () => {
             updateElementStyle(decoData);
             updateThumbnail(currentScene);
             
-            // ⭐ [수정] 쓰로틀링(지연) 대신, '즉시' 동기화를 호출합니다.
-            // requestSyncThrottled(); // <-- 이 줄 제거
-            syncStateToFirestore(); // <-- 이 함수 사용
+            // ⭐ [수정]
+            // '회전/크기/반전'은 중요한 상태 변경이므로, '즉시' 동기화합니다.
+            syncStateToFirestore(); // <-- 이 함수가 다시 필요함
 
         } else if (action === 'delete') {
             const index = storyData[currentScene].decorations.findIndex(d => d.id === id);
@@ -245,7 +234,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const element = document.getElementById(id);
                 if (element) element.remove();
                 
-                // [중요] 삭제는 즉시 동기화 (selectItems 또는 syncStateToFirestore 호출)
+                // [중요] 삭제는 즉시 동기화
                 if (selectedDecoIds.includes(id)) {
                     selectedDecoIds = selectedDecoIds.filter(i => i !== id);
                     selectItems(selectedDecoIds, 'pc'); 
